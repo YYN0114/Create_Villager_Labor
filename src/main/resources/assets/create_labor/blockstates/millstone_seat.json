@@ -1,0 +1,6 @@
+{
+    "variants": {
+        "working=false": { "model": "create_labor:block/millstone_seat_off" },
+        "working=true": { "model": "create_labor:block/millstone_seat_on" }
+    }
+}
