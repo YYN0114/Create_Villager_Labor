@@ -1,8 +1,11 @@
 package com.yyn.labor.blocks;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.simibubi.create.AllRecipeTypes;
+import com.simibubi.create.content.kinetics.press.PressingRecipe;
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyRecipe;
 import com.simibubi.create.foundation.recipe.RecipeApplier;
 
 import com.yyn.labor.CreateVillagerLabor;
@@ -27,11 +30,18 @@ public class PressSeatBlockEntity extends WorkerSeatBlockEntity {
 
     @Override
     protected List<ItemStack> processItem(ItemStack input) {
-        var recipe = AllRecipeTypes.PRESSING.find(new SingleRecipeInput(input), level);
+        // Priority 1: Sequenced assembly recipes (e.g. sturdy plate)
+        Optional<RecipeHolder<PressingRecipe>> seqRecipe = SequencedAssemblyRecipe.getRecipe(
+            level, input, AllRecipeTypes.PRESSING.getType(), PressingRecipe.class);
+        if (seqRecipe.isPresent()) {
+            return RecipeApplier.applyRecipeOn(level, input.copy(), seqRecipe.get().value(), true);
+        }
 
+        // Priority 2: Standalone pressing recipes
+        var recipe = AllRecipeTypes.PRESSING.find(new SingleRecipeInput(input), level);
         if (recipe.isEmpty())
             return List.of();
-        
+
         return RecipeApplier.applyRecipeOn(level, input.copy(), recipe.get().value(), true);
     }
 
