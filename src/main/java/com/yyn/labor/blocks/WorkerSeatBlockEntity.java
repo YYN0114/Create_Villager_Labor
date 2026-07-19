@@ -22,6 +22,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -29,9 +30,13 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.items.IItemHandler;
 
 public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
@@ -91,6 +96,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     }
 
     protected void processWork() {
+        checkHandItem();
+
         if (outputCooldown > 0) {
             outputCooldown--;
             return;
@@ -195,7 +202,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected void acquireNextItem() {
         for (Direction dir : Iterate.horizontalDirections) {
             BlockPos adjacentPos = worldPosition.relative(dir);
-            Block block = level.getBlockState(adjacentPos).getBlock();
+            BlockState adjacentState = level.getBlockState(adjacentPos);
+            Block block = adjacentState.getBlock();
 
             if (block instanceof com.simibubi.create.content.kinetics.belt.BeltBlock) {
                 if (tryTakeFromBelt(adjacentPos)) {
@@ -204,6 +212,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
                 }
             } else if (block instanceof DepotBlock) {
                 if (tryTakeFromDepot(adjacentPos))
+                    return;
+            } else if (isBasinBlock(adjacentState)) {
+                if (tryTakeFromBasin(adjacentPos))
                     return;
             }
         }
@@ -216,6 +227,49 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         if (filtering.isActive())
             return outputs.stream().anyMatch(filtering::test);
         return true;
+    }
+
+    private void checkHandItem() {
+        LivingEntity worker = findWorker();
+        if (worker == null)
+            return;
+        ItemStack currentHand = worker.getItemInHand(InteractionHand.MAIN_HAND);
+        if (ItemStack.matches(currentHand, lastHandItem))
+            return;
+        if (!currentHand.isEmpty()) {
+            Block.popResource(level, worldPosition.above(), currentHand.copy());
+        }
+        worker.setItemInHand(InteractionHand.MAIN_HAND, lastHandItem.isEmpty() ? ItemStack.EMPTY : lastHandItem.copy());
+    }
+
+    private boolean isBasinBlock(BlockState state) {
+        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
+        return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
+    }
+
+    protected boolean tryTakeFromBasin(BlockPos basinPos) {
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, basinPos, Direction.UP);
+        if (handler == null)
+            return false;
+
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.isEmpty())
+                continue;
+            if (!itemCanBeProcessed(stack))
+                continue;
+
+            ItemStack extracted = handler.extractItem(slot, 1, false);
+            if (extracted.isEmpty())
+                continue;
+
+            processingStack = extracted;
+            processingTimer = maxCooldown;
+            updateHand();
+            notifyUpdate();
+            return true;
+        }
+        return false;
     }
 
     private LivingEntity findWorker() {
@@ -346,9 +400,16 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         updateHand();
 
         for (ItemStack output : outputs) {
-            if (!outputToAdjacentBelt(output))
+            if (!outputToAdjacent(output))
                 Block.popResource(level, worldPosition.above(), output);
         }
+
+        // Immediately clear the worker's hand to prevent item duplication
+        LivingEntity worker = findWorker();
+        if (worker != null) {
+            worker.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        }
+        lastHandItem = ItemStack.EMPTY;
 
         outputCooldown = outputCooldownDuration;
         notifyUpdate();
@@ -374,15 +435,33 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return processingStack.isEmpty() ? ItemStack.EMPTY : processingStack;
     }
 
-    private boolean outputToAdjacentBelt(ItemStack stack) {
+    private boolean outputToAdjacent(ItemStack stack) {
         for (Direction dir : Iterate.horizontalDirections) {
             BlockPos adjacentPos = worldPosition.relative(dir);
-            if (level.getBlockState(adjacentPos).getBlock() instanceof com.simibubi.create.content.kinetics.belt.BeltBlock) {
+            BlockState adjacentState = level.getBlockState(adjacentPos);
+            if (adjacentState.getBlock() instanceof com.simibubi.create.content.kinetics.belt.BeltBlock) {
                 if (outputToBeltAtStart(stack, adjacentPos))
+                    return true;
+            } else if (isBasinBlock(adjacentState)) {
+                if (outputToBasin(stack, adjacentPos))
                     return true;
             }
         }
         return false;
+    }
+
+    private boolean outputToBasin(ItemStack stack, BlockPos basinPos) {
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, basinPos, Direction.UP);
+        if (handler == null)
+            return false;
+        ItemStack remainder = stack.copy();
+        for (int slot = 0; slot < handler.getSlots() && !remainder.isEmpty(); slot++) {
+            remainder = handler.insertItem(slot, remainder, false);
+        }
+        BlockEntity be = level.getBlockEntity(basinPos);
+        if (be != null)
+            be.setChanged();
+        return remainder.isEmpty();
     }
 
     private boolean outputToBeltAtStart(ItemStack stack, BlockPos beltPos) {

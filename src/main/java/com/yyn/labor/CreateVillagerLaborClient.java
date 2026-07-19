@@ -1,12 +1,17 @@
 package com.yyn.labor;
 
+import com.yyn.labor.blocks.WorkerSeatBlock;
+
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
@@ -27,5 +32,34 @@ public class CreateVillagerLaborClient {
         // Some client setup code
         CreateVillagerLabor.LOGGER.info("HELLO FROM CLIENT SETUP");
         CreateVillagerLabor.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+    }
+
+    @SubscribeEvent
+    static void onRegisterBlockColors(RegisterColorHandlersEvent.Block event) {
+        event.getBlockColors().register((state, reader, pos, tintIndex) -> {
+            if (tintIndex == 0 && state.hasProperty(WorkerSeatBlock.COLOR))
+                return state.getValue(WorkerSeatBlock.COLOR).getTextColor();
+            return -1;
+        }, CreateVillagerLabor.PRESS_SEAT.get(),
+           CreateVillagerLabor.MIXER_SEAT.get(),
+           CreateVillagerLabor.SAW_SEAT.get(),
+           CreateVillagerLabor.MILLSTONE_SEAT.get(),
+           CreateVillagerLabor.DEPLOYER_SEAT.get());
+    }
+
+    @SubscribeEvent
+    static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
+        event.getItemColors().register((stack, tintIndex) -> {
+            if (tintIndex == 0 && stack.getItem() instanceof BlockItem bi) {
+                BlockState defaultState = bi.getBlock().defaultBlockState();
+                if (defaultState.hasProperty(WorkerSeatBlock.COLOR))
+                    return defaultState.getValue(WorkerSeatBlock.COLOR).getTextColor();
+            }
+            return -1;
+        }, CreateVillagerLabor.PRESS_SEAT_ITEM.get(),
+           CreateVillagerLabor.MIXER_SEAT_ITEM.get(),
+           CreateVillagerLabor.SAW_SEAT_ITEM.get(),
+           CreateVillagerLabor.MILLSTONE_SEAT_ITEM.get(),
+           CreateVillagerLabor.DEPLOYER_SEAT_ITEM.get());
     }
 }

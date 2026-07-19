@@ -92,10 +92,21 @@ public class DeployerSeatBlockEntity extends WorkerSeatBlockEntity {
 
         List<ItemStack> outputs = RecipeApplier.applyRecipeOn(level, input.copy(), recipe, true);
 
-        // Only consume held item after outputs are confirmed, preventing item loss
-        if (!outputs.isEmpty() && !recipe.shouldKeepHeldItem()) {
-            deployerHeldItem = ItemStack.EMPTY;
-            updateHand();
+        // Consume held item after outputs are confirmed, preventing item loss
+        if (!outputs.isEmpty()) {
+            if (deployerHeldItem.isDamageableItem()) {
+                // Tool: consume durability instead of consuming the item
+                deployerHeldItem.setDamageValue(deployerHeldItem.getDamageValue() + 1);
+                if (deployerHeldItem.getDamageValue() >= deployerHeldItem.getMaxDamage()) {
+                    deployerHeldItem = ItemStack.EMPTY;
+                }
+                updateHand();
+            } else if (!recipe.shouldKeepHeldItem()) {
+                // Non-tool: consume held item as before
+                deployerHeldItem = ItemStack.EMPTY;
+                updateHand();
+            }
+            // If shouldKeepHeldItem() is true and not a tool, keep the held item
         }
 
         return outputs;

@@ -3,7 +3,7 @@
     "parent": "block/block",
     "textures": {
         "bottom": "create_labor:block/seat/bottom",
-        "top": "create_labor:block/seat/top_light_blue",
+        "top": "create_labor:block/seat/top_white",
         "side": "create_labor:block/seat/millstone_side",
         "particle": "#top"
     },
@@ -16,7 +16,7 @@
                 "east": {"uv": [0, 8, 16, 16], "texture": "#side"},
                 "south": {"uv": [0, 8, 16, 16], "texture": "#side"},
                 "west": {"uv": [0, 8, 16, 16], "texture": "#side"},
-                "up": {"uv": [0, 0, 16, 16], "texture": "#top"},
+                "up": {"uv": [0, 0, 16, 16], "texture": "#top", "tintindex": 0},
                 "down": {"uv": [0, 0, 16, 16], "texture": "#bottom"}
             }
         }

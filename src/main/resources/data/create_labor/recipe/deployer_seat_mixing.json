@@ -1,0 +1,17 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "tag": "create:seats"
+    },
+    {
+      "item": "create:brass_hand"
+    }
+  ],
+  "results": [
+    {
+      "id": "create_labor:deployer_seat",
+      "count": 1
+    }
+  ]
+}

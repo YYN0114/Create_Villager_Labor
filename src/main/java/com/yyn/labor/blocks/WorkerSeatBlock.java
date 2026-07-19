@@ -57,6 +57,8 @@ public abstract class WorkerSeatBlock extends SeatBlock {
             if (level.isClientSide)
                 return ItemInteractionResult.SUCCESS;
             level.setBlockAndUpdate(pos, state.setValue(COLOR, dyeColor));
+            if (!player.getAbilities().instabuild)
+                stack.shrink(1);
             return ItemInteractionResult.SUCCESS;
         }
 
