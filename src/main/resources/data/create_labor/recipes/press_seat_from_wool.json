@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " T ",
+    " Y ",
+    " M "
+  ],
+  "key": {
+    "T": {
+      "item": "minecraft:iron_ingot"
+    },
+    "Y": {
+      "tag": "minecraft:wool"
+    },
+    "M": {
+      "tag": "minecraft:wooden_slabs"
+    }
+  },
+  "result": {
+    "item": "create_labor:press_seat",
+    "count": 1
+  }
+}

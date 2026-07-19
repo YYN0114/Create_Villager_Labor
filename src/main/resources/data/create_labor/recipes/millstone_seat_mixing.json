@@ -1,0 +1,17 @@
+{
+  "type": "create:mixing",
+  "ingredients": [
+    {
+      "tag": "create:seats"
+    },
+    {
+      "item": "create:cogwheel"
+    }
+  ],
+  "results": [
+    {
+      "item": "create_labor:millstone_seat",
+      "count": 1
+    }
+  ]
+}

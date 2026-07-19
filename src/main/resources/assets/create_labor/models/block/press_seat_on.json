@@ -1,0 +1,6 @@
+{
+    "parent": "create_labor:block/press_seat_base",
+    "textures": {
+        "side": "create_labor:block/seat/side_pre_on"
+    }
+}

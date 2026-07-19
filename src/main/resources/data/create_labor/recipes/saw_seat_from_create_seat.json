@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "TZT"
+  ],
+  "key": {
+    "T": {
+      "item": "minecraft:iron_ingot"
+    },
+    "Z": {
+      "tag": "create:seats"
+    }
+  },
+  "result": {
+    "item": "create_labor:saw_seat",
+    "count": 1
+  }
+}

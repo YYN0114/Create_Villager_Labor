@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " T ",
+    " Y ",
+    " M "
+  ],
+  "key": {
+    "T": {
+      "item": "create:brass_hand"
+    },
+    "Y": {
+      "tag": "minecraft:wool"
+    },
+    "M": {
+      "tag": "minecraft:wooden_slabs"
+    }
+  },
+  "result": {
+    "item": "create_labor:deployer_seat",
+    "count": 1
+  }
+}
