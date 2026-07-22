@@ -1,12 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
   "pattern": [
-    " TL",
-    " M ",
+    " HL",
+    " MH",
     "M  "
   ],
   "key": {
-    "T": {
+    "H": {
       "item": "create:andesite_alloy"
     },
     "L": {

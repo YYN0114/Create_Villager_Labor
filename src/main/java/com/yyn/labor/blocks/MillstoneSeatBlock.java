@@ -1,9 +1,11 @@
 package com.yyn.labor.blocks;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -14,21 +16,23 @@ import net.minecraft.world.level.material.MapColor;
 
 public class MillstoneSeatBlock extends WorkerSeatBlock implements EntityBlock {
 
-    public static BlockEntityType<MillstoneSeatBlockEntity> BLOCK_ENTITY_TYPE;
+    public static final Map<SeatMaterial, BlockEntityType<MillstoneSeatBlockEntity>> BLOCK_ENTITY_TYPES = new EnumMap<>(SeatMaterial.class);
+    private final SeatMaterial material;
 
-    public MillstoneSeatBlock() {
+    public MillstoneSeatBlock(SeatMaterial material) {
         super(BlockBehaviour.Properties.of()
             .mapColor(MapColor.COLOR_GRAY)
             .strength(0.5f), DyeColor.LIGHT_BLUE);
+        this.material = material;
     }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
-        return BLOCK_ENTITY_TYPE.create(pos, state);
+        return BLOCK_ENTITY_TYPES.get(material).create(pos, state);
     }
 
     @Override
     public <T extends BlockEntity> BlockEntityTicker<T> getTicker(Level level, BlockState state, BlockEntityType<T> type) {
-        return type == BLOCK_ENTITY_TYPE ? ($0, $1, $2, be) -> ((WorkerSeatBlockEntity)be).tick() : null;
+        return type == BLOCK_ENTITY_TYPES.get(material) ? ($0, $1, $2, be) -> ((WorkerSeatBlockEntity)be).tick() : null;
     }
 }

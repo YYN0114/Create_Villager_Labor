@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["CCC","CXC","CCC"],"key":{"C":{"item":"create:brass_ingot"},"X":{"item":"create_labor:copper_saw_seat"}},"result":{"id":"create_labor:brass_saw_seat","count":1}}

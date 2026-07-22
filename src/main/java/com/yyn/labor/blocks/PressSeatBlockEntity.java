@@ -20,13 +20,9 @@ import net.minecraftforge.items.wrapper.RecipeWrapper;
 
 public class PressSeatBlockEntity extends WorkerSeatBlockEntity {
 
-    public PressSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
-        maxCooldown = 10;
-    }
-
-    public static PressSeatBlockEntity create(BlockPos pos, BlockState state) {
-        return new PressSeatBlockEntity(PressSeatBlock.BLOCK_ENTITY_TYPE, pos, state);
+    public PressSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
+        super(type, pos, state, material);
+        maxCooldown = material.scaleCooldown(10);
     }
 
     @Override

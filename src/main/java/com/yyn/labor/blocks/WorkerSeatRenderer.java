@@ -34,6 +34,10 @@ public class WorkerSeatRenderer implements BlockEntityRenderer<WorkerSeatBlockEn
         if (stack.isEmpty())
             return;
 
+        // 玩家坐在工位上时不渲染手部物品（玩家自身已有手部显示）
+        if (be.isWorkerPlayer())
+            return;
+
         Level level = be.getLevel();
         BlockPos pos = be.getBlockPos();
 

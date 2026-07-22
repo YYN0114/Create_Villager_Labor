@@ -1,0 +1,7 @@
+{
+    "parent": "create_labor:block/andesite_millstone_seat_base",
+    "textures": {
+        "top": "create_labor:block/andesite/top_gray",
+        "side": "create_labor:block/andesite/side_mil_off"
+    }
+}

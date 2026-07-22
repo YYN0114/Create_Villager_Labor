@@ -1,0 +1,7 @@
+{
+    "parent": "create_labor:block/creative_millstone_seat_base",
+    "textures": {
+        "top": "create_labor:block/creative/top_white",
+        "side": "create_labor:block/creative/side_mil_off"
+    }
+}

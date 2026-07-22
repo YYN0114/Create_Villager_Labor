@@ -2,6 +2,9 @@ modLoader="javafml"
 loaderVersion="${loader_version_range}"
 license="${mod_license}"
 
+[[mixins]]
+config="create_labor.mixins.json"
+
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
@@ -9,9 +12,9 @@ displayName="${mod_name}"
 logoFile="villager.png"
 authors="${mod_authors}"
 description='''
-Create Villager Labor - 1.20.1 Forge port
+Create Villager Labor ––– Human-Centric
 
-Human-Centric: Villagers, TLM maids, or even yourself sit right at the workstation and personally tend to the production process.
+Put your villagers to work. This mod brings hands-on labor to your Create factories — villagers join the assembly line, operated by your design. Exploitation or care? The choice is yours.
 '''
 
 [[dependencies.${mod_id}]]

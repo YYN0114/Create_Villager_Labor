@@ -14,13 +14,13 @@
     "has_the_recipe_0": {
       "trigger": "minecraft:recipe_unlocked",
       "conditions": {
-        "recipe": "create_labor:deployer_seat_from_wool"
+        "recipe": "create_labor:andesite_deployer_seat_from_wool"
       }
     },
     "has_the_recipe_1": {
       "trigger": "minecraft:recipe_unlocked",
       "conditions": {
-        "recipe": "create_labor:deployer_seat_from_create_seat"
+        "recipe": "create_labor:andesite_deployer_seat_from_create_seat"
       }
     }
   },
@@ -30,8 +30,8 @@
   ],
   "rewards": {
     "recipes": [
-      "create_labor:deployer_seat_from_wool",
-      "create_labor:deployer_seat_from_create_seat"
+      "create_labor:andesite_deployer_seat_from_wool",
+      "create_labor:andesite_deployer_seat_from_create_seat"
     ]
   }
 }
