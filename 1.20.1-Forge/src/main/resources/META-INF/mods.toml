@@ -1,0 +1,39 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mixins]]
+config="create_labor.mixins.json"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+logoFile="villager.png"
+authors="${mod_authors}"
+description='''
+Create Villager Labor ––– Human-Centric
+
+Put your villagers to work. This mod brings hands-on labor to your Create factories — villagers join the assembly line, operated by your design. Exploitation or care? The choice is yours.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="forge"
+    mandatory=true
+    versionRange="${forge_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="create"
+    mandatory=true
+    versionRange="[6.0.8,6.1.0)"
+    ordering="NONE"
+    side="BOTH"

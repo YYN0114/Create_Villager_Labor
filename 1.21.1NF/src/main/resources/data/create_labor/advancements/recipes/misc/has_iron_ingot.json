@@ -1,0 +1,69 @@
+{
+  "parent": "create_labor:recipes/root",
+  "criteria": {
+    "has_iron_ingot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": ["minecraft:iron_ingot"]
+          }
+        ]
+      }
+    },
+    "has_the_recipe_0": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:andesite_press_seat_from_wool"
+      }
+    },
+    "has_the_recipe_1": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:andesite_press_seat_from_create_seat"
+      }
+    },
+    "has_the_recipe_2": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:andesite_saw_seat_from_wool"
+      }
+    },
+    "has_the_recipe_3": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:andesite_saw_seat_from_create_seat"
+      }
+    },
+    "has_the_recipe_4": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:andesite_mixer_seat"
+      }
+    },
+    "has_the_recipe_5": {
+      "trigger": "minecraft:recipe_unlocked",
+      "conditions": {
+        "recipe": "create_labor:villager_binder"
+      }
+    }
+  },
+  "requirements": [
+    ["has_iron_ingot", "has_the_recipe_0"],
+    ["has_iron_ingot", "has_the_recipe_1"],
+    ["has_iron_ingot", "has_the_recipe_2"],
+    ["has_iron_ingot", "has_the_recipe_3"],
+    ["has_iron_ingot", "has_the_recipe_4"],
+    ["has_iron_ingot", "has_the_recipe_5"]
+  ],
+  "rewards": {
+    "recipes": [
+      "create_labor:andesite_press_seat_from_wool",
+      "create_labor:andesite_press_seat_from_create_seat",
+      "create_labor:andesite_saw_seat_from_wool",
+      "create_labor:andesite_saw_seat_from_create_seat",
+      "create_labor:andesite_mixer_seat",
+      "create_labor:villager_binder"
+    ]
+  }
+}

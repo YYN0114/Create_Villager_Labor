@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:villager",
+    "millenaire2:generic_villager",
+    "millenaire2:generic_symm_female",
+    "millenaire2:generic_asymm_female",
+    "millenaire2:humanoid_npc",
+    "touhou_little_maid:maid"
+  ]
+}

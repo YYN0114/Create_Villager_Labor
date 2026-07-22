@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "com.yyn.labor.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "create_labor.refmap.json",
+  "mixins": [
+    "SeatEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

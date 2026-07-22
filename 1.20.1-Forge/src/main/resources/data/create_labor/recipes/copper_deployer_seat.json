@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["CCC","CXC","CCC"],"key":{"C":{"item":"minecraft:copper_ingot"},"X":{"item":"create_labor:andesite_deployer_seat"}},"result":{"id":"create_labor:copper_deployer_seat","count":1}}

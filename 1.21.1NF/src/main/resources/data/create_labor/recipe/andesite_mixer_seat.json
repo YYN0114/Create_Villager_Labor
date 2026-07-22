@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["B B","AZA"],"key":{"B":{"tag":"c:plates/iron"},"A":{"item":"create:andesite_alloy"},"Z":{"tag":"create:seats"}},"result":{"id":"create_labor:andesite_mixer_seat","count":1}}

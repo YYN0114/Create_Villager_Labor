@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["ATA","AYA","AMA"],"key":{"T":{"item":"minecraft:iron_ingot"},"A":{"item":"create:brass_ingot"},"Y":{"tag":"minecraft:wool"},"M":{"tag":"minecraft:wooden_slabs"}},"result":{"id":"create_labor:brass_press_seat","count":1}}

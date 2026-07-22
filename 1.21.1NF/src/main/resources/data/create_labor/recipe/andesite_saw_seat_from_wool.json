@@ -1,0 +1,1 @@
+{"type":"minecraft:crafting_shaped","pattern":["TYT","AMA"],"key":{"T":{"item":"create:andesite_alloy"},"Y":{"tag":"minecraft:wool"},"M":{"tag":"minecraft:wooden_slabs"},"A":{"item":"create:andesite_alloy"}},"result":{"id":"create_labor:andesite_saw_seat","count":1}}

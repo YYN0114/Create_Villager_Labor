@@ -1,6 +1,0 @@
-{
-    "parent": "create_labor:block/mixer_seat_base",
-    "textures": {
-        "side": "create_labor:block/seat/side_mix_off"
-    }
-}

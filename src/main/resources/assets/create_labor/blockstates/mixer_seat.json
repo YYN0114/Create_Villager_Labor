@@ -1,6 +1,0 @@
-{
-    "variants": {
-        "working=false": { "model": "create_labor:block/mixer_seat_off" },
-        "working=true": { "model": "create_labor:block/mixer_seat_on" }
-    }
-}
