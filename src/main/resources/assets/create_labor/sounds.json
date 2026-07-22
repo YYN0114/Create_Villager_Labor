@@ -1,0 +1,26 @@
+{
+  "deployer_work": {
+    "subtitle": "subtitles.create_labor.deployer_work",
+    "sounds": [
+      "create_labor:deployer_work"
+    ]
+  },
+  "press_work": {
+    "subtitle": "subtitles.create_labor.press_work",
+    "sounds": [
+      "create_labor:press_work"
+    ]
+  },
+  "millstone_work": {
+    "subtitle": "subtitles.create_labor.millstone_work",
+    "sounds": [
+      "create_labor:millstone_work"
+    ]
+  },
+  "saw_work": {
+    "subtitle": "subtitles.create_labor.saw_work",
+    "sounds": [
+      "create_labor:saw_work"
+    ]
+  }
+}

@@ -34,15 +34,11 @@ public class DeployerSeatBlockEntity extends WorkerSeatBlockEntity {
     protected ItemStack deployerHeldItem;
     private int heldItemIdleTicks;
 
-    public DeployerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
-        maxCooldown = 20;
+    public DeployerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
+        super(type, pos, state, material);
+        maxCooldown = material.scaleCooldown(20);
         deployerHeldItem = ItemStack.EMPTY;
         heldItemIdleTicks = 0;
-    }
-
-    public static DeployerSeatBlockEntity create(BlockPos pos, BlockState state) {
-        return new DeployerSeatBlockEntity(DeployerSeatBlock.BLOCK_ENTITY_TYPE, pos, state);
     }
 
     @Override

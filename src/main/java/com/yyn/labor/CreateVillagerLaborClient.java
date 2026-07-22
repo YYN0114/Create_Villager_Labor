@@ -1,17 +1,15 @@
 package com.yyn.labor;
 
-import com.yyn.labor.blocks.WorkerSeatBlock;
+import com.yyn.labor.blocks.WorkerSeatRenderer;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
@@ -35,31 +33,28 @@ public class CreateVillagerLaborClient {
     }
 
     @SubscribeEvent
-    static void onRegisterBlockColors(RegisterColorHandlersEvent.Block event) {
-        event.getBlockColors().register((state, reader, pos, tintIndex) -> {
-            if (tintIndex == 0 && state.hasProperty(WorkerSeatBlock.COLOR))
-                return state.getValue(WorkerSeatBlock.COLOR).getTextColor();
-            return -1;
-        }, CreateVillagerLabor.PRESS_SEAT.get(),
-           CreateVillagerLabor.MIXER_SEAT.get(),
-           CreateVillagerLabor.SAW_SEAT.get(),
-           CreateVillagerLabor.MILLSTONE_SEAT.get(),
-           CreateVillagerLabor.DEPLOYER_SEAT.get());
+    static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
+        event.registerBlockEntityRenderer(CreateVillagerLabor.ANDESITE_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.ANDESITE_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.ANDESITE_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.ANDESITE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.ANDESITE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.COPPER_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.COPPER_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.COPPER_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.COPPER_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.COPPER_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.BRASS_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.BRASS_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.BRASS_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.BRASS_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.BRASS_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+        event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
     }
 
-    @SubscribeEvent
-    static void onRegisterItemColors(RegisterColorHandlersEvent.Item event) {
-        event.getItemColors().register((stack, tintIndex) -> {
-            if (tintIndex == 0 && stack.getItem() instanceof BlockItem bi) {
-                BlockState defaultState = bi.getBlock().defaultBlockState();
-                if (defaultState.hasProperty(WorkerSeatBlock.COLOR))
-                    return defaultState.getValue(WorkerSeatBlock.COLOR).getTextColor();
-            }
-            return -1;
-        }, CreateVillagerLabor.PRESS_SEAT_ITEM.get(),
-           CreateVillagerLabor.MIXER_SEAT_ITEM.get(),
-           CreateVillagerLabor.SAW_SEAT_ITEM.get(),
-           CreateVillagerLabor.MILLSTONE_SEAT_ITEM.get(),
-           CreateVillagerLabor.DEPLOYER_SEAT_ITEM.get());
-    }
+    // 染色通过 blockstate 变体引用不同纹理实现，不再需要 BlockColor/ItemColor tintindex 染色
 }

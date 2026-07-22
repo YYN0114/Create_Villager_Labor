@@ -13,9 +13,14 @@ import com.simibubi.create.content.kinetics.belt.transport.BeltInventory;
 import com.simibubi.create.content.kinetics.belt.transport.TransportedItemStack;
 import com.simibubi.create.content.logistics.depot.DepotBlock;
 import com.simibubi.create.content.logistics.depot.DepotBlockEntity;
+import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
+import com.simibubi.create.foundation.item.SmartInventory;
+import com.yyn.labor.Config;
+import com.yyn.labor.util.MaidChatBubbleUtil;
+import com.yyn.labor.util.WorkerUtil;
 
 import net.createmod.catnip.data.Iterate;
 import net.minecraft.core.BlockPos;
@@ -37,6 +42,7 @@ import net.minecraft.world.phys.AABB;
 
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 
 public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
@@ -60,21 +66,28 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected Direction beltDirection;
     private int rotationTick;
 
-    private static Class<?> maidClass;
-    private static boolean maidChecked = false;
+    // TLM 聊天气泡计时器
+    private int chatBubbleTimer = 0;
 
-    public WorkerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+    protected final SeatMaterial material;
+
+    public WorkerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
         super(type, pos, state);
+        this.material = material;
         maxCooldown = 5;
         workerCheckCooldown = 0;
         hasWorker = false;
         processingTimer = 0;
         processingStack = ItemStack.EMPTY;
         outputCooldown = 0;
-        outputCooldownDuration = 20;
+        outputCooldownDuration = material.scaleCooldown(20);
         lastHandItem = ItemStack.EMPTY;
         beltDirection = null;
         rotationTick = 0;
+    }
+
+    public SeatMaterial getMaterial() {
+        return material;
     }
 
     @Override
@@ -91,13 +104,14 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
         checkWorker();
 
-        if (hasWorker)
+        if (hasWorker) {
             processWork();
+            // 女仆在工位上（无论是否工作）即周期性显示 TLM 聊天气泡
+            tryShowChatBubble();
+        }
     }
 
     protected void processWork() {
-        checkHandItem();
-
         if (outputCooldown > 0) {
             outputCooldown--;
             return;
@@ -134,6 +148,21 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         updateWorkingState();
     }
 
+    /**
+     * 周期性为工作中的女仆显示 TLM 聊天气泡（测试文本 1-5 随机轮换）。
+     * 仅在服务端调用，气泡通过 TLM 内部网络同步到客户端。
+     */
+    private void tryShowChatBubble() {
+        if (!Config.ENABLE_TLM_CHAT_BUBBLE.get()) return;
+        chatBubbleTimer++;
+        if (chatBubbleTimer < Config.TLM_CHAT_BUBBLE_INTERVAL.get()) return;
+        chatBubbleTimer = 0;
+
+        LivingEntity worker = findWorker();
+        if (worker == null) return;
+        MaidChatBubbleUtil.showWorkingBubble(worker);
+    }
+
     private void updateWorkingState() {
         boolean isWorking = !processingStack.isEmpty() && processingTimer > 0;
         if (isWorking != wasWorking) {
@@ -146,19 +175,15 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     }
 
     private static boolean isMaidEntity(Entity entity) {
-        if (!maidChecked) {
-            try {
-                maidClass = Class.forName("com.github.tartaricacid.touhoulittlemaid.entity.passive.EntityMaid");
-            } catch (ClassNotFoundException e1) {
-                try {
-                    maidClass = Class.forName("touhou_little_maid.entity.passive.MaidEntity");
-                } catch (ClassNotFoundException e2) {
-                    maidClass = null;
-                }
-            }
-            maidChecked = true;
-        }
-        return maidClass != null && maidClass.isInstance(entity);
+        return WorkerUtil.isMaidEntity(entity);
+    }
+
+    private static boolean isMillenaireVillager(Entity entity) {
+        return WorkerUtil.isMillenaireVillager(entity);
+    }
+
+    private boolean isTaggedWorker(Entity entity) {
+        return WorkerUtil.isTaggedWorker(entity);
     }
 
     protected void checkWorker() {
@@ -182,7 +207,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, searchBox)) {
             if (seatEntity.isVehicle()) {
                 for (Entity passenger : seatEntity.getPassengers()) {
-                    if (passenger instanceof Villager || passenger instanceof Player || isMaidEntity(passenger))
+                    if (passenger instanceof Villager || passenger instanceof Player
+                        || isMaidEntity(passenger) || isMillenaireVillager(passenger)
+                        || isTaggedWorker(passenger))
                         return true;
                 }
             }
@@ -229,20 +256,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
-    private void checkHandItem() {
-        LivingEntity worker = findWorker();
-        if (worker == null)
-            return;
-        ItemStack currentHand = worker.getItemInHand(InteractionHand.MAIN_HAND);
-        if (ItemStack.matches(currentHand, lastHandItem))
-            return;
-        if (!currentHand.isEmpty()) {
-            Block.popResource(level, worldPosition.above(), currentHand.copy());
-        }
-        worker.setItemInHand(InteractionHand.MAIN_HAND, lastHandItem.isEmpty() ? ItemStack.EMPTY : lastHandItem.copy());
-    }
-
-    private boolean isBasinBlock(BlockState state) {
+    protected boolean isBasinBlock(BlockState state) {
         ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
         return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
     }
@@ -252,6 +266,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         if (handler == null)
             return false;
 
+        int batchSize = material.getBatchSize();
+
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
             if (stack.isEmpty())
@@ -259,7 +275,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             if (!itemCanBeProcessed(stack))
                 continue;
 
-            ItemStack extracted = handler.extractItem(slot, 1, false);
+            int toExtract = Math.min(batchSize, stack.getCount());
+            ItemStack extracted = handler.extractItem(slot, toExtract, false);
             if (extracted.isEmpty())
                 continue;
 
@@ -338,7 +355,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             return false;
         }
 
-        int remaining = found.stack.getCount() - 1;
+        int batchSize = material.getBatchSize();
+        int taken = Math.min(batchSize, found.stack.getCount());
+        int remaining = found.stack.getCount() - taken;
         if (remaining > 0) {
             TransportedItemStack rest = new TransportedItemStack(found.stack.copyWithCount(remaining));
             rest.beltPosition = found.beltPosition;
@@ -348,7 +367,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         }
         controller.notifyUpdate();
 
-        processingStack = found.stack.copyWithCount(1);
+        processingStack = found.stack.copyWithCount(taken);
         processingTimer = maxCooldown;
         updateHand();
         notifyUpdate();
@@ -366,8 +385,10 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         if (!itemCanBeProcessed(heldItem))
             return false;
 
-        processingStack = heldItem.copyWithCount(1);
-        int remaining = heldItem.getCount() - 1;
+        int batchSize = material.getBatchSize();
+        int taken = Math.min(batchSize, heldItem.getCount());
+        processingStack = heldItem.copyWithCount(taken);
+        int remaining = heldItem.getCount() - taken;
         if (remaining > 0)
             depotBE.setHeldItem(heldItem.copyWithCount(remaining));
         else
@@ -378,7 +399,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
-    private void finishProcessing() {
+    protected void finishProcessing() {
         if (processingStack.isEmpty())
             return;
 
@@ -404,13 +425,6 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
                 Block.popResource(level, worldPosition.above(), output);
         }
 
-        // Immediately clear the worker's hand to prevent item duplication
-        LivingEntity worker = findWorker();
-        if (worker != null) {
-            worker.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
-        }
-        lastHandItem = ItemStack.EMPTY;
-
         outputCooldown = outputCooldownDuration;
         notifyUpdate();
 
@@ -435,7 +449,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return processingStack.isEmpty() ? ItemStack.EMPTY : processingStack;
     }
 
-    private boolean outputToAdjacent(ItemStack stack) {
+    protected boolean outputToAdjacent(ItemStack stack) {
         for (Direction dir : Iterate.horizontalDirections) {
             BlockPos adjacentPos = worldPosition.relative(dir);
             BlockState adjacentState = level.getBlockState(adjacentPos);
@@ -450,17 +464,17 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return false;
     }
 
-    private boolean outputToBasin(ItemStack stack, BlockPos basinPos) {
-        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, basinPos, Direction.UP);
-        if (handler == null)
-            return false;
-        ItemStack remainder = stack.copy();
-        for (int slot = 0; slot < handler.getSlots() && !remainder.isEmpty(); slot++) {
-            remainder = handler.insertItem(slot, remainder, false);
-        }
+    // 把输出物品插入到 Basin 的输出槽（而非输入槽）
+    // 通过临时 allowInsertion / forbidInsertion 绕过 outputInventory 的插入禁令
+    protected boolean outputToBasin(ItemStack stack, BlockPos basinPos) {
         BlockEntity be = level.getBlockEntity(basinPos);
-        if (be != null)
-            be.setChanged();
+        if (!(be instanceof BasinBlockEntity basinBE))
+            return false;
+        SmartInventory outputInv = basinBE.getOutputInventory();
+        outputInv.allowInsertion();
+        ItemStack remainder = ItemHandlerHelper.insertItemStacked(outputInv, stack.copy(), false);
+        outputInv.forbidInsertion();
+        basinBE.notifyChangeOfContents();
         return remainder.isEmpty();
     }
 
@@ -509,5 +523,14 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
     public boolean hasWorker() {
         return hasWorker;
+    }
+
+    /**
+     * 判断当前工位上的 worker 是否为玩家。
+     * 用于渲染器决定是否渲染手部物品（玩家不渲染，村民/女仆渲染）。
+     */
+    public boolean isWorkerPlayer() {
+        LivingEntity worker = findWorker();
+        return worker instanceof Player;
     }
 }

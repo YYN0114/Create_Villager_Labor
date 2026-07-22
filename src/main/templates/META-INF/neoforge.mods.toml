@@ -48,23 +48,12 @@ authors="YYN0114"
 description='''
 Create Villager Labor ––– Human-Centric
 
-This mod aims to bring a touch of lively, handcrafted warmth to your factories, assembly lines, and all kinds of machinery. Instead of cold, lifeless industrial steel, you can have Villagers, TLM maids, or even yourself sit right at the workstation and personally tend to the production process.
-
-The mod includes a full set of recipes (though balance may be a bit rough) and is fully playable in survival mode. Villager 工厂
-
-[Important Note!]
-For balance and manual-efficiency reasons, this mod runs at a relatively lower processing speed and may occasionally miss items during(in 16+prm) production (this is intentional).
-
-[How to Use]
-Supports recipes from vanilla Create, including Sequential Assembly, Cutting, Pressing, and Milling.
-
-[How to Use]
-Craft various seats, then shift-right-click on a Villager, and shift-right-click on the seat to assign them.
+Put your villagers to work. This mod brings hands-on labor to your Create factories — villagers join the assembly line, operated by your design. Exploitation or care? The choice is yours.
 '''
 
 # The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
-#[[mixins]]
-#config="${mod_id}.mixins.json"
+[[mixins]]
+config="${mod_id}.mixins.json"
 
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg

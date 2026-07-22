@@ -15,13 +15,9 @@ import net.minecraft.world.level.block.state.BlockState;
 
 public class MillstoneSeatBlockEntity extends WorkerSeatBlockEntity {
 
-    public MillstoneSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
-        super(type, pos, state);
-        maxCooldown = 10;
-    }
-
-    public static MillstoneSeatBlockEntity create(BlockPos pos, BlockState state) {
-        return new MillstoneSeatBlockEntity(MillstoneSeatBlock.BLOCK_ENTITY_TYPE, pos, state);
+    public MillstoneSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
+        super(type, pos, state, material);
+        maxCooldown = material.scaleCooldown(10);
     }
 
     @Override

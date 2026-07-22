@@ -1,0 +1,7 @@
+{
+    "parent": "create_labor:block/brass_mixer_seat_base",
+    "textures": {
+        "top": "create_labor:block/brass/top_black",
+        "side": "create_labor:block/brass/side_mix_on"
+    }
+}
