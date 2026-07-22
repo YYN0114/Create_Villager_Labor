@@ -16,10 +16,6 @@ import com.yyn.labor.blocks.MillstoneSeatBlockEntity;
 import com.yyn.labor.blocks.DeployerSeatBlock;
 import com.yyn.labor.blocks.DeployerSeatBlockEntity;
 import com.yyn.labor.blocks.WorkerSeatBlockItem;
-<<<<<<< Updated upstream
-import com.yyn.labor.blocks.WorkerSeatRenderer;
-=======
->>>>>>> Stashed changes
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -30,20 +26,10 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-<<<<<<< Updated upstream
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.config.ModConfig;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.client.event.EntityRenderersEvent;
-=======
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
->>>>>>> Stashed changes
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -338,34 +324,5 @@ public class CreateVillagerLabor {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
-<<<<<<< Updated upstream
-    @Mod.EventBusSubscriber(modid = MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static class ClientModEvents {
-        @SubscribeEvent
-        public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
-            event.registerBlockEntityRenderer(ANDESITE_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(ANDESITE_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(ANDESITE_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(ANDESITE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(ANDESITE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(COPPER_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(COPPER_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(COPPER_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(COPPER_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(COPPER_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(BRASS_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(BRASS_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(BRASS_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(BRASS_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(BRASS_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(CREATIVE_PRESS_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(CREATIVE_MIXER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(CREATIVE_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(CREATIVE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-            event.registerBlockEntityRenderer(CREATIVE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
-        }
-    }
-=======
     // 渲染器注册已移至 CreateVillagerLaborClient（客户端专用类）
->>>>>>> Stashed changes
 }
