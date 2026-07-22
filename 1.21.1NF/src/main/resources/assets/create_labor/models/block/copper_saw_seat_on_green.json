@@ -1,7 +1,0 @@
-{
-    "parent": "create_labor:block/copper_saw_seat_base",
-    "textures": {
-        "top": "create_labor:block/copper/top_green",
-        "side": "create_labor:block/copper/side_saw_on"
-    }
-}

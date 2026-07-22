@@ -1,1 +1,0 @@
-{"type":"minecraft:crafting_shaped","pattern":["ATA","AYA","AMA"],"key":{"T":{"item":"create:cogwheel"},"A":{"item":"create:brass_ingot"},"Y":{"tag":"minecraft:wool"},"M":{"tag":"c:stones"}},"result":{"id":"create_labor:brass_millstone_seat","count":1}}

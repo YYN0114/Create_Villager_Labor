@@ -1,7 +1,0 @@
-{
-    "parent": "create_labor:block/brass_deployer_seat_base",
-    "textures": {
-        "top": "create_labor:block/brass/top_brown",
-        "side": "create_labor:block/brass/side_dep_on"
-    }
-}

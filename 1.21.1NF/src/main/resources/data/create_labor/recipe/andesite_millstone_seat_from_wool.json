@@ -1,1 +1,0 @@
-{"type":"minecraft:crafting_shaped","pattern":["ATA","AYA","AMA"],"key":{"T":{"item":"create:cogwheel"},"A":{"item":"create:andesite_alloy"},"Y":{"tag":"minecraft:wool"},"M":{"tag":"c:stones"}},"result":{"id":"create_labor:andesite_millstone_seat","count":1}}

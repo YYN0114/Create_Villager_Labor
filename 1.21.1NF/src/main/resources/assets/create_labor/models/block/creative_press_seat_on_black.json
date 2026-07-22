@@ -1,7 +1,0 @@
-{
-    "parent": "create_labor:block/creative_press_seat_base",
-    "textures": {
-        "top": "create_labor:block/creative/top_black",
-        "side": "create_labor:block/creative/side_pre_on"
-    }
-}

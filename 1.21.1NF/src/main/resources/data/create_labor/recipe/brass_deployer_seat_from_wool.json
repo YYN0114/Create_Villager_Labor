@@ -1,1 +1,0 @@
-{"type":"minecraft:crafting_shaped","pattern":["ATA","AYA","AMA"],"key":{"T":{"item":"create:brass_hand"},"A":{"item":"create:brass_ingot"},"Y":{"tag":"minecraft:wool"},"M":{"tag":"minecraft:wooden_slabs"}},"result":{"id":"create_labor:brass_deployer_seat","count":1}}
