@@ -1,7 +1,0 @@
-{
-    "parent": "create_labor:block/andesite_deployer_seat_base",
-    "textures": {
-        "top": "create_labor:block/andesite/top_light_blue",
-        "side": "create_labor:block/andesite/side_dep_on"
-    }
-}

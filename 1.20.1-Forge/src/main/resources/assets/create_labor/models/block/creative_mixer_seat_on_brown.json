@@ -1,7 +1,0 @@
-{
-    "parent": "create_labor:block/creative_mixer_seat_base",
-    "textures": {
-        "top": "create_labor:block/creative/top_brown",
-        "side": "create_labor:block/creative/side_mix_on"
-    }
-}
