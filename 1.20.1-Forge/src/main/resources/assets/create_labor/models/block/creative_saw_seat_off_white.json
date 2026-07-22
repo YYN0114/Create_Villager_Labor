@@ -1,0 +1,7 @@
+{
+    "parent": "create_labor:block/creative_saw_seat_base",
+    "textures": {
+        "top": "create_labor:block/creative/top_white",
+        "side": "create_labor:block/creative/side_saw_off"
+    }
+}

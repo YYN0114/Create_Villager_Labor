@@ -1,0 +1,7 @@
+{
+    "parent": "create_labor:block/copper_mixer_seat_base",
+    "textures": {
+        "top": "create_labor:block/copper/top_gray",
+        "side": "create_labor:block/copper/side_mix_off"
+    }
+}

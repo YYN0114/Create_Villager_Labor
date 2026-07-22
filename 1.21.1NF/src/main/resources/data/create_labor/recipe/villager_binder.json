@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " HL",
+    " MH",
+    "M  "
+  ],
+  "key": {
+    "H": {
+      "item": "create:andesite_alloy"
+    },
+    "L": {
+      "item": "minecraft:emerald"
+    },
+    "M": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "create_labor:villager_binder",
+    "count": 1
+  }
+}
