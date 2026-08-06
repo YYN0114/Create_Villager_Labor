@@ -19,6 +19,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import com.simibubi.create.foundation.item.SmartInventory;
 import com.yyn.labor.Config;
+import com.yyn.labor.entity.LaborEntity;
 import com.yyn.labor.util.MaidChatBubbleUtil;
 import com.yyn.labor.util.WorkerUtil;
 
@@ -68,6 +69,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     // TLM 聊天气泡计时器
     private int chatBubbleTimer = 0;
 
+    // 手套升级：允许处理加热配方
+    private boolean hasGlovesUpgrade = false;
+
     protected final SeatMaterial material;
 
     public WorkerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
@@ -89,6 +93,18 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return material;
     }
 
+    // ==================== 手套升级 ====================
+
+    public boolean hasGlovesUpgrade() {
+        return hasGlovesUpgrade;
+    }
+
+    public void setGlovesUpgrade(boolean value) {
+        this.hasGlovesUpgrade = value;
+        setChanged();
+        notifyUpdate();
+    }
+
     @Override
     public void addBehaviours(List<BlockEntityBehaviour> behaviours) {
         filtering = new FilteringBehaviour(this, new SeatFilterSlot()).forRecipes();
@@ -107,6 +123,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             processWork();
             // 女仆在工位上（无论是否工作）即周期性显示 TLM 聊天气泡
             tryShowChatBubble();
+            // 每 tick 更新工人朝向（朝向传送带），不受 cooldown/processing 影响
+            updateWorkerRotation();
         }
     }
 
@@ -136,15 +154,42 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         else
             updateHand();
 
-        if (beltDirection != null) {
-            rotationTick++;
-            if (rotationTick >= 5) {
-                rotationTick = 0;
-                rotateWorkerTowardBelt();
-            }
+        updateWorkingState();
+    }
+
+    /**
+     * 每 tick 更新工人朝向，指向传送带方向。
+     * 独立于 processWork()，不受 cooldown 和 processing 状态影响。
+     */
+    private void updateWorkerRotation() {
+        // 每 tick 尝试检测传送带方向（轻量操作，无需每次都取物品）
+        if (beltDirection == null) {
+            detectBeltDirection();
         }
 
-        updateWorkingState();
+        if (beltDirection == null)
+            return;
+
+        rotationTick++;
+        if (rotationTick >= 5) {
+            rotationTick = 0;
+            rotateWorkerTowardBelt();
+        }
+    }
+
+    /**
+     * 检测相邻传送带并设置 beltDirection。
+     * 不取物品，仅检测方向。
+     */
+    private void detectBeltDirection() {
+        for (Direction dir : Iterate.horizontalDirections) {
+            BlockPos adjacentPos = worldPosition.relative(dir);
+            BlockState adjacentState = level.getBlockState(adjacentPos);
+            if (adjacentState.getBlock() instanceof com.simibubi.create.content.kinetics.belt.BeltBlock) {
+                beltDirection = dir;
+                return;
+            }
+        }
     }
 
     /**
@@ -203,23 +248,32 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected boolean isWorkerPresent() {
         AABB searchBox = new AABB(worldPosition).inflate(0.5);
 
+        // 检查 Create 座位实体上的乘客（村民/玩家/女仆等）
+        // 必须 isAlive() 确保已死亡的实体不被误认为工作者
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, searchBox)) {
             if (seatEntity.isVehicle()) {
                 for (Entity passenger : seatEntity.getPassengers()) {
-                    if (passenger instanceof Villager || passenger instanceof Player
+                    if (passenger.isAlive() && (passenger instanceof Villager || passenger instanceof Player
                         || isMaidEntity(passenger) || isMillenaireVillager(passenger)
-                        || isTaggedWorker(passenger))
+                        || isTaggedWorker(passenger)))
                         return true;
                 }
             }
         }
 
         for (Entity entity : level.getEntitiesOfClass(Player.class, searchBox)) {
-            if (entity.isPassenger()) {
+            if (entity.isAlive() && entity.isPassenger()) {
                 Entity vehicle = entity.getVehicle();
                 if (vehicle instanceof SeatEntity && vehicle.blockPosition().equals(worldPosition))
                     return true;
             }
+        }
+
+        // 检测村民工人实体(LaborEntity) - 直接站在工位上的无AI村民
+        // 搜索框已限定范围，只要 entity 存活即认为工位上有人
+        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, searchBox)) {
+            if (labor.isAlive())
+                return true;
         }
 
         return false;
@@ -255,7 +309,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
-    private LivingEntity findWorker() {
+    /**
+     * 查找当前工位上的工人实体。
+     * 优先检查 SeatEntity 上的乘客，其次检查 LaborEntity（性能升级生成的村民工人）。
+     */
+    public LivingEntity findWorker() {
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, new AABB(worldPosition))) {
             if (!seatEntity.isVehicle())
                 continue;
@@ -263,6 +321,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
                 if (passenger instanceof LivingEntity living)
                     return living;
             }
+        }
+        // 检测 LaborEntity（性能升级生成的村民工人）
+        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, new AABB(worldPosition))) {
+            if (labor.isAlive())
+                return labor;
         }
         return null;
     }
@@ -526,6 +589,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         compound.putBoolean("HasWorker", hasWorker);
         compound.putInt("ProcessingTimer", processingTimer);
         compound.put("ProcessingStack", processingStack.save(new CompoundTag()));
+        compound.putBoolean("HasGlovesUpgrade", hasGlovesUpgrade);
     }
 
     @Override
@@ -534,6 +598,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         hasWorker = compound.getBoolean("HasWorker");
         processingTimer = compound.getInt("ProcessingTimer");
         processingStack = ItemStack.of(compound.getCompound("ProcessingStack"));
+        if (compound.contains("HasGlovesUpgrade")) {
+            hasGlovesUpgrade = compound.getBoolean("HasGlovesUpgrade");
+        } else {
+            hasGlovesUpgrade = false;
+        }
     }
 
     public boolean hasWorker() {

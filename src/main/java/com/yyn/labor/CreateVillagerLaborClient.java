@@ -1,8 +1,12 @@
 package com.yyn.labor;
 
+import com.yyn.labor.blocks.WorkerHatLayer;
 import com.yyn.labor.blocks.WorkerSeatRenderer;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
+import net.minecraft.client.renderer.entity.VillagerRenderer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -16,6 +20,9 @@ public class CreateVillagerLaborClient {
     static void onClientSetup(FMLClientSetupEvent event) {
         CreateVillagerLabor.LOGGER.info("HELLO FROM CLIENT SETUP");
         CreateVillagerLabor.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
+
+        // 提前触发 WorkerHatLayer 类加载，确保 PartialModel.of() 在模型烘焙前注册
+        Object earlyRef = WorkerHatLayer.WORKER_HAT;
     }
 
     @SubscribeEvent
@@ -40,7 +47,23 @@ public class CreateVillagerLaborClient {
         event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_SAW_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
         event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
         event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
+
+        event.registerEntityRenderer(CreateVillagerLabor.LABOR_ENTITY.get(), VillagerRenderer::new);
     }
 
-    // 染色通过 blockstate 变体引用不同纹理实现，不再需要 BlockColor/ItemColor tintindex 染色
+    // 给所有 VillagerRenderer（原版村民 + LaborEntity）添加工帽渲染层
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SubscribeEvent
+    static void onAddLayers(EntityRenderersEvent.AddLayers event) {
+        // 原版村民渲染器
+        VillagerRenderer villagerRenderer = event.getRenderer(EntityType.VILLAGER);
+        if (villagerRenderer != null) {
+            villagerRenderer.addLayer(new WorkerHatLayer(villagerRenderer));
+        }
+        // LaborEntity 渲染器
+        LivingEntityRenderer<?, ?> laborRenderer = (LivingEntityRenderer<?, ?>) event.getRenderer(CreateVillagerLabor.LABOR_ENTITY.get());
+        if (laborRenderer instanceof VillagerRenderer vr) {
+            vr.addLayer(new WorkerHatLayer(vr));
+        }
+    }
 }
