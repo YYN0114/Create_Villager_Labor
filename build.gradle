@@ -35,6 +35,7 @@ repositories {
     maven { url = "https://maven.ithundxr.dev/snapshots" } // Registrate
     maven { url = "https://repo.spongepowered.org/maven" }
     maven { url = "https://repo.modrinth.com" }
+    maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven (JEI, TLM, Jade 等测试用 mod)
 }
 
 base {
@@ -132,8 +133,10 @@ dependencies {
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
     implementation("com.tterrag.registrate:Registrate:${registrate_version}")
 
-
-
+    // 仅测试时挂载（非依赖、不打入发布 jar）：JEI / TLM(东方小女仆) / Jade
+    localRuntime("maven.modrinth:jei:${jei_version}")
+    localRuntime("maven.modrinth:touhou-little-maid:${tlm_version}")
+    localRuntime("maven.modrinth:jade:${jade_version}")
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
     // The group id is ignored when searching -- in this case, it is "blank"

@@ -2,12 +2,15 @@ package com.yyn.labor.blocks;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.simibubi.create.AllRecipeTypes;
 import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 import com.simibubi.create.content.processing.basin.BasinRecipe;
 import com.simibubi.create.content.processing.recipe.HeatCondition;
 import com.simibubi.create.foundation.recipe.RecipeFinder;
+
+import com.yyn.labor.util.FarmerDelightHelper;
 
 import net.createmod.catnip.data.Iterate;
 import net.createmod.catnip.math.VecHelper;
@@ -37,6 +40,8 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
     private BlockPos sourceBasinPos;
     // 记录当前批处理的实际数量（用于倍增输出和流体消耗）
     private int currentBatch = 1;
+    // 农夫乐事配方标记
+    private boolean isFarmerDelightRecipe = false;
 
     public MixerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
         super(type, pos, state, material);
@@ -83,8 +88,8 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             if (!(r instanceof BasinRecipe recipe))
                 continue;
 
-            // 搅拌工位无热源：跳过需要加热的配方
-            if (recipe.getRequiredHeat() != HeatCondition.NONE)
+            // 检查加热需求：如果没有手套升级，只能处理无需加热的配方
+            if (!hasGlovesUpgrade() && recipe.getRequiredHeat() != HeatCondition.NONE)
                 continue;
 
             // 不再跳过流体配方：允许自动酿造等流体配方
@@ -155,12 +160,53 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             // 记录 Basin 位置和实际批量，用于 finishProcessing 时处理流体和倍增输出
             sourceBasinPos = basinPos;
             currentBatch = actualBatch;
+            isFarmerDelightRecipe = false;
 
             processingTimer = maxCooldown;
             updateHand();
             notifyUpdate();
             return true;
         }
+
+        // === 农夫乐事配方兼容 ===
+        // 如果 Create 配方未匹配，尝试农夫乐事烹饪配方
+        Optional<FarmerDelightHelper.FdCookingMatch> fdMatch = FarmerDelightHelper.tryMatchCookingRecipe(
+            level, basinBE, inputInv);
+        if (fdMatch.isPresent()) {
+            FarmerDelightHelper.FdCookingMatch match = fdMatch.get();
+            int batchSize = material.getBatchSize();
+
+            int actualBatch = batchSize;
+            for (int slot : match.matchedSlots) {
+                ItemStack stack = inputInv.getStackInSlot(slot);
+                actualBatch = Math.min(actualBatch, stack.getCount());
+            }
+            if (actualBatch <= 0)
+                return false;
+
+            extraInputs.clear();
+            List<Ingredient> ings = match.recipe.getIngredients();
+            for (int i = 0; i < match.matchedSlots.size(); i++) {
+                int slot = match.matchedSlots.get(i);
+                ItemStack extracted = inputInv.extractItem(slot, actualBatch, false);
+                if (i == 0) {
+                    processingStack = extracted;
+                } else {
+                    extraInputs.add(extracted);
+                }
+            }
+            basinBE.notifyChangeOfContents();
+
+            sourceBasinPos = basinPos;
+            currentBatch = actualBatch;
+            isFarmerDelightRecipe = true;
+
+            processingTimer = maxCooldown;
+            updateHand();
+            notifyUpdate();
+            return true;
+        }
+
         return false;
     }
 
@@ -217,6 +263,12 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
         if (processingStack.isEmpty())
             return;
 
+        // 如果是农夫乐事配方，使用 FD 兼容处理
+        if (isFarmerDelightRecipe) {
+            finishFarmerDelightRecipe();
+            return;
+        }
+
         List candidatesRaw = RecipeFinder.get(AllRecipeTypes.MIXING.getType(), level,
             r -> r instanceof RecipeHolder holder
                 && holder.value().getType() == AllRecipeTypes.MIXING.getType());
@@ -237,7 +289,8 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
         for (Recipe<?> r : candidates) {
             if (!(r instanceof BasinRecipe recipe))
                 continue;
-            if (recipe.getRequiredHeat() != HeatCondition.NONE)
+            // 检查加热需求：如果没有手套升级，只能匹配无需加热的配方
+            if (!hasGlovesUpgrade() && recipe.getRequiredHeat() != HeatCondition.NONE)
                 continue;
 
             List<Ingredient> ings = recipe.getIngredients();
@@ -273,13 +326,7 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             Block.popResource(level, worldPosition.above(), processingStack.copy());
             for (ItemStack extra : extraInputs)
                 Block.popResource(level, worldPosition.above(), extra.copy());
-            processingStack = ItemStack.EMPTY;
-            extraInputs.clear();
-            sourceBasinPos = null;
-            currentBatch = 1;
-            updateHand();
-            outputCooldown = outputCooldownDuration;
-            notifyUpdate();
+            clearProcessingState();
             return;
         }
 
@@ -309,14 +356,132 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
                 Block.popResource(level, worldPosition.above(), output);
         }
 
+        clearProcessingState();
+        onProcessingComplete();
+    }
+
+    /**
+     * 处理农夫乐事烹饪配方的输出。
+     */
+    @SuppressWarnings("unchecked")
+    private void finishFarmerDelightRecipe() {
+        List<ItemStack> inputs = new ArrayList<>();
+        inputs.add(processingStack);
+        inputs.addAll(extraInputs);
+
+        // 尝试重新匹配 FD 配方
+        Optional<FarmerDelightHelper.FdCookingMatch> fdMatch =
+            FarmerDelightHelper.tryMatchCookingRecipe(level, null, new SimpleInputWrapper(inputs));
+
+        List<ItemStack> outputs;
+        if (fdMatch.isPresent()) {
+            outputs = FarmerDelightHelper.getRecipeOutputs(fdMatch.get().recipe, level.registryAccess());
+        } else {
+            // 匹配失败，尝试从保存的输入重新匹配（使用配方管理器）
+            var registryAccess = level.registryAccess();
+            var allRecipes = level.getRecipeManager().getRecipes().stream()
+                .filter(holder -> FarmerDelightHelper.isCookingRecipe(holder.value(), registryAccess))
+                .map(holder -> (RecipeHolder<Recipe<?>>) (Object) holder)
+                .toList();
+
+            Recipe<?> matched = null;
+            for (RecipeHolder<Recipe<?>> holder : allRecipes) {
+                Recipe<?> recipe = holder.value();
+                List<Ingredient> ings = recipe.getIngredients();
+                if (ings.size() != inputs.size())
+                    continue;
+
+                List<Ingredient> remaining = new ArrayList<>(ings);
+                boolean allMatched = true;
+                for (ItemStack input : inputs) {
+                    boolean found = false;
+                    for (int i = 0; i < remaining.size(); i++) {
+                        if (remaining.get(i).test(input)) {
+                            remaining.remove(i);
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        allMatched = false;
+                        break;
+                    }
+                }
+
+                if (allMatched && remaining.isEmpty()) {
+                    matched = recipe;
+                    break;
+                }
+            }
+
+            if (matched != null) {
+                outputs = FarmerDelightHelper.getRecipeOutputs(matched, registryAccess);
+            } else {
+                outputs = List.of();
+            }
+        }
+
+        if (outputs.isEmpty()) {
+            // 处理失败：弹出物品
+            Block.popResource(level, worldPosition.above(), processingStack.copy());
+            for (ItemStack extra : extraInputs)
+                Block.popResource(level, worldPosition.above(), extra.copy());
+            clearProcessingState();
+            return;
+        }
+
+        // 按批量倍增输出
+        if (currentBatch > 1) {
+            for (int i = 0; i < outputs.size(); i++) {
+                ItemStack stack = outputs.get(i);
+                if (!stack.isEmpty()) {
+                    outputs.set(i, stack.copyWithCount(stack.getCount() * currentBatch));
+                }
+            }
+        }
+
+        updateHand();
+
+        // 输出到 Basin 输出槽
+        for (ItemStack output : outputs) {
+            if (!outputToAdjacent(output))
+                Block.popResource(level, worldPosition.above(), output);
+        }
+
+        clearProcessingState();
+        onProcessingComplete();
+    }
+
+    /**
+     * 简易 IItemHandler 包装器，用于在 finishProcessing 时重新匹配配方。
+     */
+    private static class SimpleInputWrapper implements net.neoforged.neoforge.items.IItemHandler {
+        private final List<ItemStack> stacks;
+
+        SimpleInputWrapper(List<ItemStack> stacks) {
+            this.stacks = stacks;
+        }
+
+        @Override public int getSlots() { return stacks.size(); }
+        @Override public ItemStack getStackInSlot(int slot) { return slot >= 0 && slot < stacks.size() ? stacks.get(slot) : ItemStack.EMPTY; }
+        @Override public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) { return stack; }
+        @Override public ItemStack extractItem(int slot, int amount, boolean simulate) { return ItemStack.EMPTY; }
+        @Override public int getSlotLimit(int slot) { return 64; }
+        @Override public boolean isItemValid(int slot, ItemStack stack) { return true; }
+    }
+
+    /**
+     * 清理处理状态（提取为共用方法）。
+     */
+    private void clearProcessingState() {
         processingStack = ItemStack.EMPTY;
         extraInputs.clear();
         sourceBasinPos = null;
         currentBatch = 1;
+        isFarmerDelightRecipe = false;
+        updateHand();
         outputCooldown = outputCooldownDuration;
         notifyUpdate();
-
-        onProcessingComplete();
     }
 
     // 消耗 Basin 中的流体输入，产生流体输出

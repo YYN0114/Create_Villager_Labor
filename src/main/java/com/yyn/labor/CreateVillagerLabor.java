@@ -15,11 +15,16 @@ import com.yyn.labor.blocks.MillstoneSeatBlockEntity;
 import com.yyn.labor.blocks.DeployerSeatBlock;
 import com.yyn.labor.blocks.DeployerSeatBlockEntity;
 import com.yyn.labor.blocks.WorkerSeatBlockItem;
+import com.yyn.labor.entity.LaborEntity;
+import com.yyn.labor.item.GlovesUpgradeItem;
+import com.yyn.labor.item.PerformanceUpgradeItem;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
@@ -29,6 +34,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -44,6 +50,20 @@ public class CreateVillagerLabor {
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
     public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(Registries.SOUND_EVENT, MODID);
+    public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
+
+    // ==================== Items ====================
+    public static final DeferredItem<GlovesUpgradeItem> GLOVES_UPGRADE = ITEMS.register("gloves_upgrade",
+        () -> new GlovesUpgradeItem(new Item.Properties().stacksTo(64)));
+    public static final DeferredItem<PerformanceUpgradeItem> PERFORMANCE_UPGRADE = ITEMS.register("performance_upgrade",
+        () -> new PerformanceUpgradeItem(new Item.Properties().stacksTo(64)));
+
+    // ==================== Entity Types ====================
+    public static final DeferredHolder<EntityType<?>, EntityType<LaborEntity>> LABOR_ENTITY = ENTITY_TYPES.register("labor",
+        () -> EntityType.Builder.of(LaborEntity::new, MobCategory.MISC)
+            .sized(0.6f, 1.95f)
+            .clientTrackingRange(10)
+            .build("labor"));
 
     // ==================== Andesite variant ====================
     public static final DeferredBlock<PressSeatBlock> ANDESITE_PRESS_SEAT = BLOCKS.register("andesite_press_seat", () -> new PressSeatBlock(SeatMaterial.ANDESITE));
@@ -311,6 +331,9 @@ public class CreateVillagerLabor {
                 output.accept(CREATIVE_DEPLOYER_SEAT_ITEM.get());
                 // 工具
                 output.accept(VILLAGER_BINDER.get());
+                // 升级道具
+                output.accept(GLOVES_UPGRADE.get());
+                output.accept(PERFORMANCE_UPGRADE.get());
             }).build());
 
     public CreateVillagerLabor(IEventBus modEventBus, ModContainer modContainer) {
@@ -319,9 +342,15 @@ public class CreateVillagerLabor {
         BLOCK_ENTITIES.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         SOUND_EVENTS.register(modEventBus);
+        ENTITY_TYPES.register(modEventBus);
+
+        // 注册实体属性
+        modEventBus.addListener(this::onEntityAttributeCreation);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
-    // 渲染器注册已移至 CreateVillagerLaborClient（客户端专用类）
+    private void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
+        event.put(LABOR_ENTITY.get(), LaborEntity.createAttributes().build());
+    }
 }

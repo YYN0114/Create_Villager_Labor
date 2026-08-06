@@ -19,6 +19,7 @@ import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
 import com.simibubi.create.foundation.item.SmartInventory;
 import com.yyn.labor.Config;
+import com.yyn.labor.entity.LaborEntity;
 import com.yyn.labor.util.MaidChatBubbleUtil;
 import com.yyn.labor.util.WorkerUtil;
 
@@ -69,6 +70,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     // TLM 聊天气泡计时器
     private int chatBubbleTimer = 0;
 
+    // 手套升级：允许处理加热配方
+    private boolean hasGlovesUpgrade = false;
+
     protected final SeatMaterial material;
 
     public WorkerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
@@ -88,6 +92,18 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
     public SeatMaterial getMaterial() {
         return material;
+    }
+
+    // ==================== 手套升级 ====================
+
+    public boolean hasGlovesUpgrade() {
+        return hasGlovesUpgrade;
+    }
+
+    public void setGlovesUpgrade(boolean value) {
+        this.hasGlovesUpgrade = value;
+        setChanged();
+        notifyUpdate();
     }
 
     @Override
@@ -204,23 +220,32 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected boolean isWorkerPresent() {
         AABB searchBox = new AABB(worldPosition).inflate(0.5);
 
+        // 检查 Create 座位实体上的乘客（村民/玩家/女仆等）
+        // 必须 isAlive() 确保已死亡的实体不被误认为工作者
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, searchBox)) {
             if (seatEntity.isVehicle()) {
                 for (Entity passenger : seatEntity.getPassengers()) {
-                    if (passenger instanceof Villager || passenger instanceof Player
+                    if (passenger.isAlive() && (passenger instanceof Villager || passenger instanceof Player
                         || isMaidEntity(passenger) || isMillenaireVillager(passenger)
-                        || isTaggedWorker(passenger))
+                        || isTaggedWorker(passenger)))
                         return true;
                 }
             }
         }
 
         for (Entity entity : level.getEntitiesOfClass(Player.class, searchBox)) {
-            if (entity.isPassenger()) {
+            if (entity.isAlive() && entity.isPassenger()) {
                 Entity vehicle = entity.getVehicle();
                 if (vehicle instanceof SeatEntity && vehicle.blockPosition().equals(worldPosition))
                     return true;
             }
+        }
+
+        // 检测村民工人实体(LaborEntity) - 直接站在工位上的无AI村民
+        // 搜索框已限定范围，只要 entity 存活即认为工位上有人
+        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, searchBox)) {
+            if (labor.isAlive())
+                return true;
         }
 
         return false;
@@ -256,40 +281,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
-    protected boolean isBasinBlock(BlockState state) {
-        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
-        return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
-    }
-
-    protected boolean tryTakeFromBasin(BlockPos basinPos) {
-        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, basinPos, Direction.UP);
-        if (handler == null)
-            return false;
-
-        int batchSize = material.getBatchSize();
-
-        for (int slot = 0; slot < handler.getSlots(); slot++) {
-            ItemStack stack = handler.getStackInSlot(slot);
-            if (stack.isEmpty())
-                continue;
-            if (!itemCanBeProcessed(stack))
-                continue;
-
-            int toExtract = Math.min(batchSize, stack.getCount());
-            ItemStack extracted = handler.extractItem(slot, toExtract, false);
-            if (extracted.isEmpty())
-                continue;
-
-            processingStack = extracted;
-            processingTimer = maxCooldown;
-            updateHand();
-            notifyUpdate();
-            return true;
-        }
-        return false;
-    }
-
-    private LivingEntity findWorker() {
+    /**
+     * 查找当前工位上的工人实体。
+     * 优先检查 SeatEntity 上的乘客，其次检查 LaborEntity（性能升级生成的村民工人）。
+     */
+    public LivingEntity findWorker() {
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, new AABB(worldPosition))) {
             if (!seatEntity.isVehicle())
                 continue;
@@ -297,6 +293,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
                 if (passenger instanceof LivingEntity living)
                     return living;
             }
+        }
+        // 检测 LaborEntity（性能升级生成的村民工人）
+        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, new AABB(worldPosition))) {
+            if (labor.isAlive())
+                return labor;
         }
         return null;
     }
@@ -397,6 +398,39 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         updateHand();
         notifyUpdate();
         return true;
+    }
+
+    protected boolean isBasinBlock(BlockState state) {
+        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
+        return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
+    }
+
+    protected boolean tryTakeFromBasin(BlockPos basinPos) {
+        IItemHandler handler = level.getCapability(Capabilities.ItemHandler.BLOCK, basinPos, Direction.UP);
+        if (handler == null)
+            return false;
+
+        int batchSize = material.getBatchSize();
+
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
+            ItemStack stack = handler.getStackInSlot(slot);
+            if (stack.isEmpty())
+                continue;
+            if (!itemCanBeProcessed(stack))
+                continue;
+
+            int toExtract = Math.min(batchSize, stack.getCount());
+            ItemStack extracted = handler.extractItem(slot, toExtract, false);
+            if (extracted.isEmpty())
+                continue;
+
+            processingStack = extracted;
+            processingTimer = maxCooldown;
+            updateHand();
+            notifyUpdate();
+            return true;
+        }
+        return false;
     }
 
     protected void finishProcessing() {
@@ -511,6 +545,7 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         compound.putBoolean("HasWorker", hasWorker);
         compound.putInt("ProcessingTimer", processingTimer);
         compound.put("ProcessingStack", processingStack.saveOptional(registries));
+        compound.putBoolean("HasGlovesUpgrade", hasGlovesUpgrade);
     }
 
     @Override
@@ -519,6 +554,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         hasWorker = compound.getBoolean("HasWorker");
         processingTimer = compound.getInt("ProcessingTimer");
         processingStack = ItemStack.parseOptional(registries, compound.getCompound("ProcessingStack"));
+        if (compound.contains("HasGlovesUpgrade")) {
+            hasGlovesUpgrade = compound.getBoolean("HasGlovesUpgrade");
+        } else {
+            hasGlovesUpgrade = false;
+        }
     }
 
     public boolean hasWorker() {
