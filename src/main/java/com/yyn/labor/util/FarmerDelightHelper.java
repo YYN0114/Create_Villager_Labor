@@ -2,6 +2,7 @@ package com.yyn.labor.util;
 
 import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -42,10 +43,9 @@ public final class FarmerDelightHelper {
         if (level == null || level.isClientSide)
             return Optional.empty();
 
-        // 从配方管理器中获取所有配方
+        // 从配方管理器中获取所有配方（1.20.1 中 getRecipes() 返回 Collection<Recipe<?>>）
         List<Recipe<?>> allRecipes = new ArrayList<>();
-        var recipeMap = level.getRecipeManager().getRecipes();
-        for (Recipe<?> r : recipeMap.values()) {
+        for (Recipe<?> r : level.getRecipeManager().getRecipes()) {
             if (isCookingRecipe(r)) {
                 allRecipes.add(r);
             }
@@ -101,11 +101,11 @@ public final class FarmerDelightHelper {
      * 获取配方结果（物品输出）。
      * 使用反射尝试获取容器输出（如碗），如果失败则只返回主产物。
      */
-    public static List<ItemStack> getRecipeOutputs(Recipe<?> recipe) {
+    public static List<ItemStack> getRecipeOutputs(Recipe<?> recipe, RegistryAccess registryAccess) {
         List<ItemStack> outputs = new ArrayList<>();
 
-        // 主产物（Forge 1.20.1 不使用 RegistryAccess）
-        ItemStack result = recipe.getResultItem();
+        // 主产物（1.20.1 需要 RegistryAccess 参数）
+        ItemStack result = recipe.getResultItem(registryAccess);
         if (!result.isEmpty())
             outputs.add(result.copy());
 

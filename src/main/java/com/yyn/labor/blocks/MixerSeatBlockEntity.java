@@ -366,12 +366,11 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
 
         List<ItemStack> outputs;
         if (fdMatch.isPresent()) {
-            outputs = FarmerDelightHelper.getRecipeOutputs(fdMatch.get().recipe);
+            outputs = FarmerDelightHelper.getRecipeOutputs(fdMatch.get().recipe, level.registryAccess());
         } else {
             // 匹配失败，尝试从保存的输入重新匹配（使用配方管理器）
             var allRecipes = new ArrayList<Recipe<?>>();
-            var recipeMap = level.getRecipeManager().getRecipes();
-            for (Recipe<?> r : recipeMap.values()) {
+            for (Recipe<?> r : level.getRecipeManager().getRecipes()) {
                 if (FarmerDelightHelper.isCookingRecipe(r)) {
                     allRecipes.add(r);
                 }
@@ -407,7 +406,7 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             }
 
             if (matched != null) {
-                outputs = FarmerDelightHelper.getRecipeOutputs(matched);
+                outputs = FarmerDelightHelper.getRecipeOutputs(matched, level.registryAccess());
             } else {
                 outputs = List.of();
             }

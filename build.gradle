@@ -60,9 +60,16 @@ repositories {
     mavenCentral()
     maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
     maven { url = "https://repo.spongepowered.org/maven" }
+    maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven (JEI, TLM, Jade 等测试用 mod)
     flatDir {
         dir 'libs'
     }
+}
+
+// 仅测试时挂载（localRuntime）：运行测试时加载，但不作为编译依赖、不打入发布 jar
+configurations {
+    localRuntime
+    runtimeClasspath.extendsFrom localRuntime
 }
 
 dependencies {
@@ -80,6 +87,11 @@ dependencies {
 
     // Mixin annotation processor for refmap generation
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // 仅测试时挂载（localRuntime）：JEI / TLM(东方小女仆) / Jade
+    localRuntime fg.deobf("maven.modrinth:jei:${jei_version}")
+    localRuntime fg.deobf("maven.modrinth:touhou-little-maid:${tlm_version}")
+    localRuntime fg.deobf("maven.modrinth:jade:${jade_version}")
 }
 
 tasks.named('processResources', ProcessResources).configure {
