@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.simibubi.create.AllRecipeTypes;
+import com.simibubi.create.content.kinetics.crafter.MechanicalCraftingRecipe;
+import com.simibubi.create.content.kinetics.press.MechanicalPressBlockEntity;
 import com.simibubi.create.content.processing.basin.BasinBlockEntity;
 import com.simibubi.create.content.processing.basin.BasinRecipe;
 import com.simibubi.create.content.processing.recipe.HeatCondition;
@@ -20,9 +22,11 @@ import net.minecraft.core.Direction.Axis;
 import net.minecraft.core.particles.ItemParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -42,6 +46,8 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
     private int currentBatch = 1;
     // 农夫乐事配方标记
     private boolean isFarmerDelightRecipe = false;
+    // 无形状合成配方标记（原版 shapeless → 搅拌器兼容）
+    private boolean isShapelessRecipe = false;
 
     public MixerSeatBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state, SeatMaterial material) {
         super(type, pos, state, material);
@@ -161,6 +167,70 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             sourceBasinPos = basinPos;
             currentBatch = actualBatch;
             isFarmerDelightRecipe = false;
+            isShapelessRecipe = false;
+
+            processingTimer = maxCooldown;
+            updateHand();
+            notifyUpdate();
+            return true;
+        }
+
+        // === 无形状合成配方兼容（原版 shapeless → 搅拌器，与 Create 原版一致）===
+        for (RecipeHolder<?> holder : level.getRecipeManager().getRecipes()) {
+            Recipe<?> r = holder.value();
+            if (!isShapelessCrafting(r)) continue;
+            if (AllRecipeTypes.shouldIgnoreInAutomation(holder)) continue;
+
+            List<Ingredient> ings = r.getIngredients();
+            if (ings.size() <= 1) continue;
+
+            // 多 ingredient 匹配（与 MIXING 相同逻辑）
+            List<Integer> matchedSlots = new ArrayList<>();
+            boolean allMatched = true;
+            for (Ingredient ing : ings) {
+                boolean found = false;
+                for (int slot = 0; slot < inputInv.getSlots(); slot++) {
+                    if (matchedSlots.contains(slot)) continue;
+                    ItemStack stack = inputInv.getStackInSlot(slot);
+                    if (stack.isEmpty()) continue;
+                    if (ing.test(stack)) {
+                        matchedSlots.add(slot);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) { allMatched = false; break; }
+            }
+            if (!allMatched || matchedSlots.size() != ings.size()) continue;
+
+            // 获取输出
+            ItemStack result = r.getResultItem(level.registryAccess());
+            if (result.isEmpty()) continue;
+            if (filtering.isActive() && !filtering.test(result)) continue;
+
+            // 提取物品
+            int batchSize = material.getBatchSize();
+            int actualBatch = batchSize;
+            for (int slot : matchedSlots) {
+                actualBatch = Math.min(actualBatch, inputInv.getStackInSlot(slot).getCount());
+            }
+            if (actualBatch <= 0) continue;
+
+            extraInputs.clear();
+            for (int i = 0; i < matchedSlots.size(); i++) {
+                ItemStack extracted = inputInv.extractItem(matchedSlots.get(i), actualBatch, false);
+                if (i == 0) {
+                    processingStack = extracted;
+                } else {
+                    extraInputs.add(extracted);
+                }
+            }
+            basinBE.notifyChangeOfContents();
+
+            sourceBasinPos = basinPos;
+            currentBatch = actualBatch;
+            isFarmerDelightRecipe = false;
+            isShapelessRecipe = true;
 
             processingTimer = maxCooldown;
             updateHand();
@@ -200,6 +270,7 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
             sourceBasinPos = basinPos;
             currentBatch = actualBatch;
             isFarmerDelightRecipe = true;
+            isShapelessRecipe = false;
 
             processingTimer = maxCooldown;
             updateHand();
@@ -266,6 +337,12 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
         // 如果是农夫乐事配方，使用 FD 兼容处理
         if (isFarmerDelightRecipe) {
             finishFarmerDelightRecipe();
+            return;
+        }
+
+        // 如果是无形状合成配方，使用 shapeless 兼容处理
+        if (isShapelessRecipe) {
+            finishShapelessRecipe();
             return;
         }
 
@@ -453,6 +530,93 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
     }
 
     /**
+     * 处理无形状合成配方的输出。
+     * 重新匹配原版 shapeless 配方，获取输出并按批量倍增。
+     */
+    private void finishShapelessRecipe() {
+        List<ItemStack> inputs = new ArrayList<>();
+        inputs.add(processingStack);
+        inputs.addAll(extraInputs);
+
+        // 遍历所有原版合成配方，寻找匹配的 shapeless 配方
+        Recipe<?> matched = null;
+        for (RecipeHolder<?> holder : level.getRecipeManager().getRecipes()) {
+            Recipe<?> r = holder.value();
+            if (!isShapelessCrafting(r)) continue;
+            if (AllRecipeTypes.shouldIgnoreInAutomation(holder)) continue;
+
+            List<Ingredient> ings = r.getIngredients();
+            if (ings.isEmpty() || ings.size() != inputs.size()) continue;
+
+            // 顺序无关匹配
+            List<Ingredient> remaining = new ArrayList<>(ings);
+            boolean allMatched = true;
+            for (ItemStack input : inputs) {
+                boolean found = false;
+                for (int i = 0; i < remaining.size(); i++) {
+                    if (remaining.get(i).test(input)) {
+                        remaining.remove(i);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    allMatched = false;
+                    break;
+                }
+            }
+
+            if (allMatched && remaining.isEmpty()) {
+                matched = r;
+                break;
+            }
+        }
+
+        if (matched == null) {
+            Block.popResource(level, worldPosition.above(), processingStack.copy());
+            for (ItemStack extra : extraInputs)
+                Block.popResource(level, worldPosition.above(), extra.copy());
+            clearProcessingState();
+            return;
+        }
+
+        ItemStack result = matched.getResultItem(level.registryAccess());
+        List<ItemStack> outputs = new ArrayList<>();
+        outputs.add(result.copy());
+
+        // 按批量倍增输出
+        if (currentBatch > 1) {
+            for (int i = 0; i < outputs.size(); i++) {
+                ItemStack stack = outputs.get(i);
+                if (!stack.isEmpty()) {
+                    outputs.set(i, stack.copyWithCount(stack.getCount() * currentBatch));
+                }
+            }
+        }
+
+        updateHand();
+        for (ItemStack output : outputs) {
+            if (!outputToAdjacent(output))
+                Block.popResource(level, worldPosition.above(), output);
+        }
+
+        clearProcessingState();
+        onProcessingComplete();
+    }
+
+    /**
+     * 判断配方是否为可被搅拌器处理的无形状合成配方。
+     * 条件（与 Create 原版 MechanicalMixerBlockEntity.matchStaticFilters 一致）：
+     * - 是 CraftingRecipe 但不是 ShapedRecipe（也排除了 MechanicalCraftingRecipe）
+     * - 不可被自动压缩（2x2/3x3 同原料合成由 Press 处理）
+     */
+    private static boolean isShapelessCrafting(Recipe<?> recipe) {
+        if (!(recipe instanceof CraftingRecipe)) return false;
+        if (recipe instanceof ShapedRecipe) return false; // 也排除 MechanicalCraftingRecipe
+        return !MechanicalPressBlockEntity.canCompress(recipe);
+    }
+
+    /**
      * 简易 IItemHandler 包装器，用于在 finishProcessing 时重新匹配配方。
      */
     private static class SimpleInputWrapper implements net.neoforged.neoforge.items.IItemHandler {
@@ -479,6 +643,7 @@ public class MixerSeatBlockEntity extends WorkerSeatBlockEntity {
         sourceBasinPos = null;
         currentBatch = 1;
         isFarmerDelightRecipe = false;
+        isShapelessRecipe = false;
         updateHand();
         outputCooldown = outputCooldownDuration;
         notifyUpdate();

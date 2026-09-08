@@ -18,7 +18,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -136,7 +138,17 @@ public class DeployerSeatBlockEntity extends WorkerSeatBlockEntity {
         Optional<RecipeHolder<DeployerApplicationRecipe>> seqRecipe = SequencedAssemblyRecipe.getRecipe(
             level, wrapper, AllRecipeTypes.DEPLOYING.getType(), DeployerApplicationRecipe.class);
         if (seqRecipe.isPresent()) {
-            return seqRecipe.get().value();
+            RecipeHolder<DeployerApplicationRecipe> holder = seqRecipe.get();
+            DeployerApplicationRecipe recipe = holder.value();
+            // 过滤 shouldIgnoreInAutomation + 输出（若过滤器启用），不通过则继续向下查找，不直接 return
+            if (!AllRecipeTypes.shouldIgnoreInAutomation(holder)) {
+                boolean outputOk = true;
+                if (filtering.isActive()) {
+                    ItemStack rep = recipe.getResultItem(level.registryAccess());
+                    outputOk = !rep.isEmpty() && filtering.test(rep);
+                }
+                if (outputOk) return recipe;
+            }
         }
 
         // Priority 2: Standalone deploying recipes
@@ -148,8 +160,14 @@ public class DeployerSeatBlockEntity extends WorkerSeatBlockEntity {
                 continue;
             if (!(holder.value() instanceof ItemApplicationRecipe iar))
                 continue;
-            if (iar.matches(wrapper, level))
-                return iar;
+            if (!iar.matches(wrapper, level))
+                continue;
+            // 输出过滤嵌入循环：不匹配时 continue，保证能尝试后续配方
+            if (filtering.isActive()) {
+                ItemStack rep = iar.getResultItem(level.registryAccess());
+                if (rep.isEmpty() || !filtering.test(rep)) continue;
+            }
+            return iar;
         }
 
         // Priority 3: Manual application recipes (e.g. andesite casing)
@@ -161,10 +179,41 @@ public class DeployerSeatBlockEntity extends WorkerSeatBlockEntity {
                 continue;
             if (!(holder.value() instanceof ManualApplicationRecipe mar))
                 continue;
-            if (mar.matches(wrapper, level))
-                return ManualApplicationRecipe.asDeploying(holder).value();
+            if (!mar.matches(wrapper, level))
+                continue;
+            DeployerApplicationRecipe converted = ManualApplicationRecipe.asDeploying(holder).value();
+            // 输出过滤嵌入循环
+            if (filtering.isActive()) {
+                ItemStack rep = converted.getResultItem(level.registryAccess());
+                if (rep.isEmpty() || !filtering.test(rep)) continue;
+            }
+            return converted;
         }
 
+
+        // Priority 4: 兜底全量遍历所有配方（兼容第三方模组的"手持+输入=输出"类配方）
+        // 纯函数过滤：只保留"恰好双 ingredient，且 [belt,held] 正反序都能分别命中"的配方
+        for (RecipeHolder<?> holder : level.getRecipeManager().getRecipes()) {
+            Recipe<?> recipe = holder.value();
+            RecipeType<?> rt = recipe.getType();
+            if (rt == AllRecipeTypes.DEPLOYING.getType()) continue;
+            if (rt == AllRecipeTypes.ITEM_APPLICATION.getType()) continue;
+            if (!AllRecipeTypes.CAN_BE_AUTOMATED.test(holder)) continue;
+            java.util.List<Ingredient> ings = recipe.getIngredients();
+            if (ings.size() != 2) continue;
+            Ingredient i0 = ings.get(0);
+            Ingredient i1 = ings.get(1);
+            boolean orderA = i0.test(beltItem) && i1.test(heldItem);
+            boolean orderB = i0.test(heldItem) && i1.test(beltItem);
+            if (!orderA && !orderB) continue;
+            if (recipe instanceof ItemApplicationRecipe iar && iar.matches(wrapper, level)) {
+                if (filtering.isActive()) {
+                    ItemStack rep = iar.getResultItem(level.registryAccess());
+                    if (rep.isEmpty() || !filtering.test(rep)) continue;
+                }
+                return iar;
+            }
+        }
         return null;
     }
 
