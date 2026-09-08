@@ -66,6 +66,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected Direction beltDirection;
     private int rotationTick;
 
+    // 保存工人原始主手物品，避免工位加工期间覆盖工人（酒狐、女仆等）本来自带的持物
+    private LivingEntity cachedWorker;
+    private ItemStack savedOriginalHandItem = ItemStack.EMPTY;
+    private boolean hasSavedOriginalHand = false;
+
     // TLM 聊天气泡计时器
     private int chatBubbleTimer = 0;
 
@@ -162,11 +167,9 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
      * 独立于 processWork()，不受 cooldown 和 processing 状态影响。
      */
     private void updateWorkerRotation() {
-        // 每 tick 尝试检测传送带方向（轻量操作，无需每次都取物品）
         if (beltDirection == null) {
             detectBeltDirection();
         }
-
         if (beltDirection == null)
             return;
 
@@ -177,10 +180,6 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         }
     }
 
-    /**
-     * 检测相邻传送带并设置 beltDirection。
-     * 不取物品，仅检测方向。
-     */
     private void detectBeltDirection() {
         for (Direction dir : Iterate.horizontalDirections) {
             BlockPos adjacentPos = worldPosition.relative(dir);
@@ -237,7 +236,22 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         }
         workerCheckCooldown = 5;
 
+        // 判定"工位是否真有人工作" → 仍沿用原来的严格口径 isWorkerPresent()，
+        // 与修复前逻辑 100% 一致，确保"原本能工作 → 现在也工作"。
         boolean newHasWorker = isWorkerPresent();
+
+        // 找一个用于写入主手的工人引用。findWorker() 已与 isWorkerPresent 使用同口径，
+        // 保证只返回真正能工作的 LivingEntity（不会把僵尸/羊/错误实体写入主手）。
+        LivingEntity currentWorker = newHasWorker ? findWorker() : null;
+
+        // 工人变化时：上一位工人还原主手物品，新工人（若有）保存原始主手物品
+        if (cachedWorker != currentWorker) {
+            restoreOriginalHandIfNeeded();
+            cachedWorker = currentWorker;
+            saveOriginalHandIfNeeded();
+            lastHandItem = ItemStack.EMPTY;
+        }
+
         if (newHasWorker != hasWorker) {
             hasWorker = newHasWorker;
             LOGGER.info("Worker presence changed: {} -> {} at {}", !hasWorker, hasWorker, worldPosition);
@@ -248,8 +262,6 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
     protected boolean isWorkerPresent() {
         AABB searchBox = new AABB(worldPosition).inflate(0.5);
 
-        // 检查 Create 座位实体上的乘客（村民/玩家/女仆等）
-        // 必须 isAlive() 确保已死亡的实体不被误认为工作者
         for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, searchBox)) {
             if (seatEntity.isVehicle()) {
                 for (Entity passenger : seatEntity.getPassengers()) {
@@ -269,8 +281,6 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             }
         }
 
-        // 检测村民工人实体(LaborEntity) - 直接站在工位上的无AI村民
-        // 搜索框已限定范围，只要 entity 存活即认为工位上有人
         for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, searchBox)) {
             if (labor.isAlive())
                 return true;
@@ -278,6 +288,41 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
         return false;
     }
+
+    // =============== 工人主手物品保护：保存/还原原始持物 ===============
+
+    private void saveOriginalHandIfNeeded() {
+        hasSavedOriginalHand = false;
+        savedOriginalHandItem = ItemStack.EMPTY;
+        if (cachedWorker == null) return;
+        if (cachedWorker instanceof Player) return;
+        if (cachedWorker instanceof LaborEntity) return;
+        ItemStack current = cachedWorker.getItemInHand(InteractionHand.MAIN_HAND);
+        if (!current.isEmpty()) {
+            savedOriginalHandItem = current.copy();
+            hasSavedOriginalHand = true;
+        }
+    }
+
+    private void restoreOriginalHandIfNeeded() {
+        if (cachedWorker == null) return;
+        try {
+            if (hasSavedOriginalHand && !savedOriginalHandItem.isEmpty()) {
+                cachedWorker.setItemInHand(InteractionHand.MAIN_HAND, savedOriginalHandItem.copy());
+            }
+        } catch (Exception ignored) {
+        } finally {
+            hasSavedOriginalHand = false;
+            savedOriginalHandItem = ItemStack.EMPTY;
+        }
+    }
+
+    public void restoreWorkerOnRemoval() {
+        restoreOriginalHandIfNeeded();
+        cachedWorker = null;
+    }
+
+    // ================================================================
 
     protected void acquireNextItem() {
         for (Direction dir : Iterate.horizontalDirections) {
@@ -311,19 +356,40 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
 
     /**
      * 查找当前工位上的工人实体。
-     * 优先检查 SeatEntity 上的乘客，其次检查 LaborEntity（性能升级生成的村民工人）。
+     * 搜索范围与 isWorkerPresent() 保持一致（inflate(0.5)），且判定口径完全相同，
+     * 只会返回"真正会被认为在工位上工作的 LivingEntity"，避免把僵尸/羊等
+     * 错误乘客当成工人去写入主手物品。
      */
     public LivingEntity findWorker() {
-        for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, new AABB(worldPosition))) {
+        AABB searchBox = new AABB(worldPosition).inflate(0.5);
+
+        // 1) SeatEntity 上的合法乘客（Villager/Player/Maid/Millenaire/Tagged）
+        for (SeatEntity seatEntity : level.getEntitiesOfClass(SeatEntity.class, searchBox)) {
             if (!seatEntity.isVehicle())
                 continue;
             for (Entity passenger : seatEntity.getPassengers()) {
-                if (passenger instanceof LivingEntity living)
+                if (!passenger.isAlive())
+                    continue;
+                if (passenger instanceof LivingEntity living &&
+                    (passenger instanceof Villager || passenger instanceof Player
+                        || isMaidEntity(passenger) || isMillenaireVillager(passenger)
+                        || isTaggedWorker(passenger))) {
                     return living;
+                }
             }
         }
-        // 检测 LaborEntity（性能升级生成的村民工人）
-        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, new AABB(worldPosition))) {
+
+        // 2) Player（兜底：部分玩家骑乘路径）
+        for (Entity entity : level.getEntitiesOfClass(Player.class, searchBox)) {
+            if (entity.isAlive() && entity.isPassenger()) {
+                Entity vehicle = entity.getVehicle();
+                if (vehicle instanceof SeatEntity && vehicle.blockPosition().equals(worldPosition))
+                    return (Player) entity;
+            }
+        }
+
+        // 3) LaborEntity（性能升级生成的无AI村民工人）
+        for (LaborEntity labor : level.getEntitiesOfClass(LaborEntity.class, searchBox)) {
             if (labor.isAlive())
                 return labor;
         }
@@ -368,10 +434,8 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             float center = targetSegment + 0.5f;
             if (Math.abs(item.beltPosition - center) > 0.45f)
                 continue;
-
             if (!itemCanBeProcessed(item.stack))
                 continue;
-
             found = item;
             break;
         }
@@ -437,6 +501,11 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
+    protected boolean isBasinBlock(BlockState state) {
+        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
+        return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
+    }
+
     protected boolean tryTakeFromBasin(BlockPos basinPos) {
         BlockEntity be = level.getBlockEntity(basinPos);
         if (be == null)
@@ -477,9 +546,13 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         List<ItemStack> outputs = processItem(processingStack);
 
         if (outputs.isEmpty()) {
-            LOGGER.warn("Processing failed for {} at {}, dropping item to prevent loss",
+            LOGGER.warn("Processing failed for {} at {}, returning item to adjacent depot (or dropping) to prevent loss",
                 processingStack.getItem(), worldPosition);
-            Block.popResource(level, worldPosition.above(), processingStack.copy());
+            // 仅置物台(无传送带/盆)场景：原物放回相邻 Depot，不直接丢地上
+            ItemStack toReturn = processingStack.copy();
+            if (!outputToAdjacentDepotOnly(toReturn)) {
+                Block.popResource(level, worldPosition.above(), toReturn);
+            }
             processingStack = ItemStack.EMPTY;
             updateHand();
             outputCooldown = outputCooldownDuration;
@@ -487,33 +560,62 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
             return;
         }
 
-        // Keep processingStack for rendering during cooldown;
-        // it will be cleared when outputCooldown reaches 0 in processWork()
         updateHand();
 
         for (ItemStack output : outputs) {
-            if (!outputToAdjacent(output))
-                Block.popResource(level, worldPosition.above(), output);
+            // 先 Belt→Basin→Depot 依次尝试；仅置物台时 Depot 接住物品，不会掉出世界
+            if (!outputToAdjacent(output)) {
+                if (!outputToAdjacentDepotOnly(output)) {
+                    Block.popResource(level, worldPosition.above(), output);
+                }
+            }
         }
 
         outputCooldown = outputCooldownDuration;
         notifyUpdate();
-
         onProcessingComplete();
     }
 
     protected void onProcessingComplete() {
     }
 
+    /**
+     * 更新工人主手显示。
+     * 1) 玩家：绝对不修改主手；
+     * 2) 非玩家工人：有加工物品时才设为加工物品；加工为空则还原其入职时保存的原始主手；
+     * 3) 不再使用 {@code worker != cachedWorker} 作为 early return：若检测到工人切换，
+     *    直接在此处顺带进行旧工人物品还原和新工人物品保存，避免因 checkWorker 的
+     *    冷却周期导致"工位无法继续工作"或主手写入错误实体。
+     */
     protected void updateHand() {
-        ItemStack toHold = getHandItem();
-        if (ItemStack.matches(toHold, lastHandItem))
-            return;
-        lastHandItem = toHold.copy();
-
         LivingEntity worker = findWorker();
-        if (worker != null)
-            worker.setItemInHand(InteractionHand.MAIN_HAND, toHold);
+
+        if (worker != cachedWorker) {
+            restoreOriginalHandIfNeeded();
+            cachedWorker = worker;
+            saveOriginalHandIfNeeded();
+            lastHandItem = ItemStack.EMPTY;
+        }
+
+        if (worker instanceof Player) return;
+
+        ItemStack toHold = getHandItem();
+
+        if (!processingStack.isEmpty()) {
+            if (ItemStack.matches(toHold, lastHandItem)) return;
+            lastHandItem = toHold.copy();
+            if (worker != null)
+                worker.setItemInHand(InteractionHand.MAIN_HAND, toHold.copy());
+        } else {
+            lastHandItem = ItemStack.EMPTY;
+            if (worker == null) return;
+            if (worker instanceof LaborEntity) {
+                worker.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+            } else if (hasSavedOriginalHand) {
+                worker.setItemInHand(InteractionHand.MAIN_HAND, savedOriginalHandItem.copy());
+            }
+            // 未保存原始持物则不覆盖，以免丢失工人后来自己获得的物品
+        }
     }
 
     protected ItemStack getHandItem() {
@@ -537,9 +639,52 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return false;
     }
 
-    protected boolean isBasinBlock(BlockState state) {
-        ResourceLocation key = state.getBlock().builtInRegistryHolder().key().location();
-        return "create".equals(key.getNamespace()) && "basin".equals(key.getPath());
+    /**
+     * 当且仅当相邻只有置物台（没有传送带/盆）时使用：原物或产出物放回置物台。
+     * 与 outputToAdjacent 的差别是：不扫 Belt/Basin，只扫 Depot，避免误塞到其他位置。
+     */
+    protected boolean outputToAdjacentDepotOnly(ItemStack stack) {
+        for (Direction dir : Iterate.horizontalDirections) {
+            BlockPos adjacentPos = worldPosition.relative(dir);
+            BlockState adjacentState = level.getBlockState(adjacentPos);
+            if (adjacentState.getBlock() instanceof DepotBlock) {
+                if (outputToDepot(stack, adjacentPos))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 把物品推到 Depot 置物台上：
+     * - Depot 当前为空 → 直接 setHeldItem
+     * - Depot 已有同类物品且两者能合并（未到单堆上限）→ 合并
+     * 合并不完的剩余部分会直接掉出（置物台一次只能放一堆）
+     */
+    protected boolean outputToDepot(ItemStack stack, BlockPos depotPos) {
+        BlockEntity be = level.getBlockEntity(depotPos);
+        if (!(be instanceof DepotBlockEntity depotBE))
+            return false;
+        ItemStack current = depotBE.getHeldItem();
+        if (current.isEmpty()) {
+            depotBE.setHeldItem(stack.copy());
+            return true;
+        }
+        if (ItemStack.isSameItemSameTags(current, stack)) {
+            int space = current.getMaxStackSize() - current.getCount();
+            if (space <= 0) return false;
+            int toMove = Math.min(space, stack.getCount());
+            ItemStack merged = current.copy();
+            merged.grow(toMove);
+            depotBE.setHeldItem(merged);
+            if (toMove < stack.getCount()) {
+                ItemStack leftover = stack.copy();
+                leftover.shrink(toMove);
+                Block.popResource(level, depotPos.above(), leftover);
+            }
+            return true;
+        }
+        return false;
     }
 
     private boolean outputToBeltAtStart(ItemStack stack, BlockPos beltPos) {
@@ -567,8 +712,6 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         return true;
     }
 
-    // 把输出物品插入到 Basin 的输出槽（而非输入槽）
-    // 通过临时 allowInsertion / forbidInsertion 绕过 outputInventory 的插入禁令
     protected boolean outputToBasin(ItemStack stack, BlockPos basinPos) {
         BlockEntity be = level.getBlockEntity(basinPos);
         if (!(be instanceof BasinBlockEntity basinBE))
@@ -603,16 +746,16 @@ public abstract class WorkerSeatBlockEntity extends SmartBlockEntity {
         } else {
             hasGlovesUpgrade = false;
         }
+        cachedWorker = null;
+        hasSavedOriginalHand = false;
+        savedOriginalHandItem = ItemStack.EMPTY;
+        lastHandItem = ItemStack.EMPTY;
     }
 
     public boolean hasWorker() {
         return hasWorker;
     }
 
-    /**
-     * 判断当前工位上的 worker 是否为玩家。
-     * 用于渲染器决定是否渲染手部物品（玩家不渲染，村民/女仆渲染）。
-     */
     public boolean isWorkerPlayer() {
         LivingEntity worker = findWorker();
         return worker instanceof Player;

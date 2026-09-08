@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
 
-public class DeployerSeatBlock extends WorkerSeatBlock implements EntityBlock {
+public class DeployerSeatBlock extends WorkerSeatBlock implements EntityBlock, IHasSeatMaterial {
 
     public static final Map<SeatMaterial, BlockEntityType<DeployerSeatBlockEntity>> BLOCK_ENTITY_TYPES = new EnumMap<>(SeatMaterial.class);
     private final SeatMaterial material;
@@ -25,6 +25,9 @@ public class DeployerSeatBlock extends WorkerSeatBlock implements EntityBlock {
             .strength(0.5f), DyeColor.LIGHT_BLUE);
         this.material = material;
     }
+
+    @Override
+    public SeatMaterial getMaterial() { return material; }
 
     @Override
     public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
