@@ -37,3 +37,11 @@ Put your villagers to work. This mod brings hands-on labor to your Create factor
     versionRange="[6.0.8,6.1.0)"
     ordering="NONE"
     side="BOTH"
+
+# 等价交换(ProjectE) 为软依赖：未安装时本模组的 EMC 联动内容不会被注册
+[[dependencies.${mod_id}]]
+    modId="projecte"
+    mandatory=false
+    versionRange="[1.0.1,)"
+    ordering="NONE"
+    side="BOTH"

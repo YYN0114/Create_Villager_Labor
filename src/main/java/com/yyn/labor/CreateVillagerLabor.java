@@ -16,22 +16,29 @@ import com.yyn.labor.blocks.MillstoneSeatBlockEntity;
 import com.yyn.labor.blocks.DeployerSeatBlock;
 import com.yyn.labor.blocks.DeployerSeatBlockEntity;
 import com.yyn.labor.blocks.WorkerSeatBlockItem;
+import com.yyn.labor.emc.EmcCacheData;
+import com.yyn.labor.emc.EmcContent;
 import com.yyn.labor.entity.LaborEntity;
 import com.yyn.labor.item.GlovesUpgradeItem;
 import com.yyn.labor.item.PerformanceUpgradeItem;
+import com.yyn.labor.recipe.CatalystShapedRecipeSerializer;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -52,6 +59,11 @@ public class CreateVillagerLabor {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MODID);
     public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(ForgeRegistries.SOUND_EVENTS, MODID);
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
+    public static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZERS = DeferredRegister.create(ForgeRegistries.RECIPE_SERIALIZERS, MODID);
+
+    /** "催化剂不消耗"的有序合成配方类型（用于等价交换联动的销售器/购买器配方） */
+    public static final RegistryObject<CatalystShapedRecipeSerializer> CATALYST_SHAPED_SERIALIZER =
+        RECIPE_SERIALIZERS.register("catalyst_shaped", CatalystShapedRecipeSerializer::new);
 
     // ==================== Items ====================
     public static final RegistryObject<GlovesUpgradeItem> GLOVES_UPGRADE = ITEMS.register("gloves_upgrade",
@@ -334,9 +346,17 @@ public class CreateVillagerLabor {
                 // 升级道具
                 output.accept(GLOVES_UPGRADE.get());
                 output.accept(PERFORMANCE_UPGRADE.get());
+                // 等价交换联动（未安装 ProjectE 时不会注册）
+                if (EmcContent.isEnabled()) {
+                    output.accept(EmcContent.EMC_SELLER_ITEM.get());
+                    output.accept(EmcContent.EMC_BUYER_ITEM.get());
+                }
             }).build());
 
     public CreateVillagerLabor() {
+        // 等价交换(ProjectE) 为软依赖：仅在其已加载时才注册 EMC 联动内容
+        EmcContent.register();
+
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
@@ -344,11 +364,21 @@ public class CreateVillagerLabor {
         CREATIVE_MODE_TABS.register(modEventBus);
         SOUND_EVENTS.register(modEventBus);
         ENTITY_TYPES.register(modEventBus);
+        RECIPE_SERIALIZERS.register(modEventBus);
 
         // 注册实体属性
         modEventBus.addListener(this::onEntityAttributeCreation);
 
+        // 玩家上线时，把离线期间暂存（销售器缓存溢出）的 EMC 补写进其账户
+        if (EmcContent.isEnabled())
+            MinecraftForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
+
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player)
+            EmcCacheData.flushPending(player);
     }
 
     private void onEntityAttributeCreation(EntityAttributeCreationEvent event) {

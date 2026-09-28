@@ -1,7 +1,10 @@
 package com.yyn.labor;
 
+import com.simibubi.create.foundation.blockEntity.renderer.SmartBlockEntityRenderer;
 import com.yyn.labor.blocks.WorkerHatLayer;
 import com.yyn.labor.blocks.WorkerSeatRenderer;
+import com.yyn.labor.emc.EmcContent;
+import com.yyn.labor.emc.EmcSellerRenderer;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
@@ -48,7 +51,17 @@ public class CreateVillagerLaborClient {
         event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_MILLSTONE_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
         event.registerBlockEntityRenderer(CreateVillagerLabor.CREATIVE_DEPLOYER_SEAT_ENTITY.get(), ctx -> new WorkerSeatRenderer());
 
+        // LaborEntity 使用普通 VillagerRenderer（工帽层在 AddLayers 中统一添加）
         event.registerEntityRenderer(CreateVillagerLabor.LABOR_ENTITY.get(), VillagerRenderer::new);
+
+        // 等价交换联动方块（未安装 ProjectE 时不会注册）
+        if (EmcContent.isEnabled()) {
+            // 销售器：复用置物台的物品渲染
+            event.registerBlockEntityRenderer(EmcContent.EMC_SELLER_ENTITY.get(), EmcSellerRenderer::new);
+            // 购买器：复用机械动力的通用渲染器（用于绘制筛选框）
+            event.registerBlockEntityRenderer(EmcContent.EMC_BUYER_ENTITY.get(),
+                ctx -> new SmartBlockEntityRenderer<>(ctx));
+        }
     }
 
     // 给所有 VillagerRenderer（原版村民 + LaborEntity）添加工帽渲染层

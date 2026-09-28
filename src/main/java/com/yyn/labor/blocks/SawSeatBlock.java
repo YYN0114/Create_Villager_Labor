@@ -22,7 +22,7 @@ public class SawSeatBlock extends WorkerSeatBlock implements EntityBlock, IHasSe
     public SawSeatBlock(SeatMaterial material) {
         super(BlockBehaviour.Properties.of()
             .mapColor(MapColor.COLOR_GRAY)
-            .strength(0.5f), DyeColor.LIGHT_BLUE);
+            .strength(2.0f), DyeColor.LIGHT_BLUE);
         this.material = material;
     }
 

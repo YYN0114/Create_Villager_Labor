@@ -27,6 +27,11 @@ minecraft {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
+            // 开发环境必须开启 refmap 重映射，否则第三方 mod(Create/Ponder) 的 mixin
+            // 会拿 SRG 名去官方名类里找目标，导致 Mixin apply failed
+            // (例如 ponder-common.mixins.json:client.WindowResizeMixin 找不到 Minecraft.m_5741_)
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${project.buildDir}/createSrgToMcp/output.srg"
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -59,6 +64,7 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 repositories {
     mavenCentral()
     maven { url = "https://maven.createmod.net" } // Create, Ponder, Flywheel
+    maven { url = "https://maven.tterrag.com/" } // Registrate (1.20.1)
     maven { url = "https://repo.spongepowered.org/maven" }
     maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven (JEI, TLM, Jade 等测试用 mod)
     flatDir {
@@ -76,17 +82,37 @@ dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
     // Create dependencies for 1.20.1 Forge
+    // 注意：只引 :slim（开发环境用的就是它）。
+    // :all 是给玩家整合包用的"全家桶"jar，内部 META-INF/jarjar 里还打包了
+    // Ponder-Forge-1.20.1-1.0.91.jar；在开发环境里会和下面单独引入的 Ponder 冲突
+    // （classpath 上出现两份 ponder-common.mixins.json / ponder.refmap.json），
+    // 导致 refmap 取到错误的一份，WindowResizeMixin 注入失败：
+    //   could not find any targets matching 'Lnet/minecraft/client/Minecraft;m_5741_()V'
     implementation fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:slim") { transitive = false }
-    implementation fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:all")
     implementation fg.deobf("dev.engine-room.flywheel:flywheel-forge-${minecraft_version}:${flywheel_version}")
     compileOnly fg.deobf("dev.engine-room.flywheel:flywheel-forge-api-${minecraft_version}:${flywheel_version}")
+
+    // Registrate：Create 6.x 依赖它（jarjar 在 Create jar 内，开发环境需显式引入）
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
 
     // Ponder & Catnip (jarjar'd inside Create jar but not resolved by maven transitive;
     // Ponder jar also bundles net.createmod.catnip classes)
     implementation fg.deobf("net.createmod.ponder:Ponder-Forge-${minecraft_version}:${ponder_version}")
 
+    // MixinExtras：Create 6.x 的 mixin 依赖它。版本与 Create 6.0.8-291 内部
+    // META-INF/jarjar/mixinextras-forge-0.4.1.jar 保持一致。
+    // 开发环境不会自动带上 jarjar 内的库，缺失会在启动时报
+    // ClassMetadataNotFoundException: ...mixinextras.injector.wrapoperation.Operation
+    implementation "io.github.llamalad7:mixinextras-forge:0.4.1"
+
     // Mixin annotation processor for refmap generation
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // ProjectE(等价交换) 为软依赖：仅编译期引用，不打包、不强制运行时加载
+    // jar 以 flatDir 形式放在 libs/ 下并做 fg.deobf，使开发环境也能加载（配合下面的 localRuntime 测试）
+    compileOnly fg.deobf("create_labor.local:ProjectE-1.20.1-PE1:1.0.1")
+    // 仅在开发环境挂载，便于测试 EMC 联动内容
+    localRuntime fg.deobf("create_labor.local:ProjectE-1.20.1-PE1:1.0.1")
 
     // 仅测试时挂载（localRuntime）：JEI / TLM(东方小女仆) / Jade
     localRuntime fg.deobf("maven.modrinth:jei:${jei_version}")
