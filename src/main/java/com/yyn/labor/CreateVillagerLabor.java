@@ -15,13 +15,17 @@ import com.yyn.labor.blocks.MillstoneSeatBlockEntity;
 import com.yyn.labor.blocks.DeployerSeatBlock;
 import com.yyn.labor.blocks.DeployerSeatBlockEntity;
 import com.yyn.labor.blocks.WorkerSeatBlockItem;
+import com.yyn.labor.emc.EmcCacheData;
+import com.yyn.labor.emc.EmcContent;
 import com.yyn.labor.entity.LaborEntity;
 import com.yyn.labor.item.GlovesUpgradeItem;
 import com.yyn.labor.item.PerformanceUpgradeItem;
+import com.yyn.labor.recipe.CatalystShapedRecipeSerializer;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -29,12 +33,15 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
@@ -51,6 +58,11 @@ public class CreateVillagerLabor {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
     public static final DeferredRegister<SoundEvent> SOUND_EVENTS = DeferredRegister.create(Registries.SOUND_EVENT, MODID);
     public static final DeferredRegister<EntityType<?>> ENTITY_TYPES = DeferredRegister.create(Registries.ENTITY_TYPE, MODID);
+    public static final DeferredRegister<RecipeSerializer<?>> RECIPE_SERIALIZERS = DeferredRegister.create(Registries.RECIPE_SERIALIZER, MODID);
+
+    /** "催化剂不消耗"的有序合成配方类型（用于等价交换联动的销售器/购买器配方） */
+    public static final DeferredHolder<RecipeSerializer<?>, CatalystShapedRecipeSerializer> CATALYST_SHAPED_SERIALIZER =
+        RECIPE_SERIALIZERS.register("catalyst_shaped", CatalystShapedRecipeSerializer::new);
 
     // ==================== Items ====================
     public static final DeferredItem<GlovesUpgradeItem> GLOVES_UPGRADE = ITEMS.register("gloves_upgrade",
@@ -334,20 +346,40 @@ public class CreateVillagerLabor {
                 // 升级道具
                 output.accept(GLOVES_UPGRADE.get());
                 output.accept(PERFORMANCE_UPGRADE.get());
+                // 等价交换联动（未安装 ProjectE 时不会注册）
+                if (EmcContent.isEnabled()) {
+                    output.accept(EmcContent.EMC_SELLER_ITEM.get());
+                    output.accept(EmcContent.EMC_BUYER_ITEM.get());
+                }
             }).build());
 
     public CreateVillagerLabor(IEventBus modEventBus, ModContainer modContainer) {
+        // 等价交换(ProjectE) 为软依赖：仅在其已加载时才注册 EMC 联动内容
+        EmcContent.register();
+
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         CREATIVE_MODE_TABS.register(modEventBus);
         SOUND_EVENTS.register(modEventBus);
         ENTITY_TYPES.register(modEventBus);
+        RECIPE_SERIALIZERS.register(modEventBus);
 
         // 注册实体属性
         modEventBus.addListener(this::onEntityAttributeCreation);
+        // EMC 方块物品能力（未安装 ProjectE 时内部直接跳过）
+        modEventBus.addListener(EmcContent::registerCapabilities);
+
+        // 玩家上线时，把离线期间暂存（销售器缓存溢出）的 EMC 补写进其账户
+        if (EmcContent.isEnabled())
+            NeoForge.EVENT_BUS.addListener(this::onPlayerLoggedIn);
 
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    private void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player)
+            EmcCacheData.flushPending(player);
     }
 
     private void onEntityAttributeCreation(EntityAttributeCreationEvent event) {

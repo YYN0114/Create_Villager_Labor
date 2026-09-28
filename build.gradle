@@ -35,7 +35,8 @@ repositories {
     maven { url = "https://maven.ithundxr.dev/snapshots" } // Registrate
     maven { url = "https://repo.spongepowered.org/maven" }
     maven { url = "https://repo.modrinth.com" }
-    maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven (JEI, TLM, Jade 等测试用 mod)
+    maven { url = "https://api.modrinth.com/maven" } // Modrinth Maven (TLM/Jade 等测试用 mod)
+    maven { url = "https://maven.blamejared.com" } // JEI 官方 maven（Modrinth 上 JEI 的默认文件是 Fabric 版，NeoForge 版需从这里取）
 }
 
 base {
@@ -133,8 +134,13 @@ dependencies {
     runtimeOnly("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
     implementation("com.tterrag.registrate:Registrate:${registrate_version}")
 
+    // ProjectE(等价交换) 为软依赖：仅编译期引用，不打包、不强制运行时加载
+    compileOnly files("../git mod/[等价交换重制版] ProjectE-1.21.1-PE1.1.0.jar")
+    // 仅在开发环境挂载，便于测试 EMC 联动内容
+    localRuntime files("../git mod/[等价交换重制版] ProjectE-1.21.1-PE1.1.0.jar")
+
     // 仅测试时挂载（非依赖、不打入发布 jar）：JEI / TLM(东方小女仆) / Jade
-    localRuntime("maven.modrinth:jei:${jei_version}")
+    localRuntime("mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}")
     localRuntime("maven.modrinth:touhou-little-maid:${tlm_version}")
     localRuntime("maven.modrinth:jade:${jade_version}")
     // Example mod dependency using a mod jar from ./libs with a flat dir repository

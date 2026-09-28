@@ -54,5 +54,12 @@
   "chat_bubble.create_labor.working.7": "还需要更多材料...",
   "chat_bubble.create_labor.working.8": "好累啊...",
   "chat_bubble.create_labor.working.9": "能不能慢点啊",
-  "chat_bubble.create_labor.working.10": "主人~完事后能给狐蛋糕吗？"
+  "chat_bubble.create_labor.working.10": "主人~完事后能给狐蛋糕吗？",
+  "block.create_labor.emc_seller": "EMC销售器",
+  "block.create_labor.emc_buyer": "EMC购买器",
+  "create_labor.emc_buyer.cache_limit": "缓存EMC上限",
+  "create_labor.emc_buyer.cache_limit.row.100": "每格 100 EMC",
+  "create_labor.emc_buyer.cache_limit.row.1000": "每格 1000 EMC",
+  "create_labor.mapping.create_processing": "Create 加工配方",
+  "create_labor.mapping.create_processing.tooltip": "根据机械动力的加工配方（粉碎、研磨、搅拌、冲压等）自动推导物品的 EMC 值"
 }

@@ -22,7 +22,7 @@ public class PressSeatBlock extends WorkerSeatBlock implements EntityBlock, IHas
     public PressSeatBlock(SeatMaterial material) {
         super(BlockBehaviour.Properties.of()
             .mapColor(MapColor.COLOR_GRAY)
-            .strength(0.5f), DyeColor.LIGHT_BLUE);
+            .strength(2.0f), DyeColor.LIGHT_BLUE);
         this.material = material;
     }
 

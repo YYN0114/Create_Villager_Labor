@@ -54,5 +54,12 @@
   "chat_bubble.create_labor.working.7": "Need more materials...",
   "chat_bubble.create_labor.working.8": "So tired...",
   "chat_bubble.create_labor.working.9": "Can we slow down?",
-  "chat_bubble.create_labor.working.10": "Master~ fox cake after this?"
+  "chat_bubble.create_labor.working.10": "Master~ fox cake after this?",
+  "block.create_labor.emc_seller": "EMC Seller",
+  "block.create_labor.emc_buyer": "EMC Buyer",
+  "create_labor.emc_buyer.cache_limit": "Cache EMC Limit",
+  "create_labor.emc_buyer.cache_limit.row.100": "in steps of 100 EMC",
+  "create_labor.emc_buyer.cache_limit.row.1000": "in steps of 1000 EMC",
+  "create_labor.mapping.create_processing": "Create Processing Recipes",
+  "create_labor.mapping.create_processing.tooltip": "Derives EMC values from Create's processing recipes (crushing, milling, mixing, pressing, etc.)"
 }
